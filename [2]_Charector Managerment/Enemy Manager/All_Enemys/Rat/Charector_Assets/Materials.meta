@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Player Manager/Player Assets/Materials.meta
+guid: 6bbea33b117b50144b3f5ba08f74553d
+========
+guid: d67324489a79b014f936011b719842a1
+>>>>>>>> 7fc6a45 (+sound +enemy +Boss):Assets/Enemy/Rat_FolkFall/Rat_FolkFall/Materials.meta
+folderAsset: yes
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

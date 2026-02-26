@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/FolderColor.meta
+guid: 12278dba51dbba8498ac67655832250d
+========
+guid: 6c2b021f56c70904d99a86f9f47bf8ae
+>>>>>>>> 7fc6a45 (+sound +enemy +Boss):Assets/Enemy.meta
+folderAsset: yes
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
