@@ -1,35 +1,24 @@
 ﻿using UnityEngine;
+using BasicEnemy.Enemy.Core;
 
 namespace BasicEnemy.Enemy.Wendigo_FolkFall
 {
-    public class BossFSM : FiniteStateMachine
+    public class BossFSM : FiniteStateMachine, IBossContext
     {
-        [Header("Movement")]
-        public float walkSpeed = 3f;
-        public float runSpeed = 6f;
-        public float stoppingDistance = 1.5f;
-        
         [Header("Boss Logic Settings")]
         public float meleeTriggerDistance = 1.5f;
 
-        [Header("Jump Attack")]
-        public float jumpAttackRange = 10f;
-
-        [Header("Boss State")]
-        public float runThreshold = 0.5f;
-
-        [Header("Dependencies")]
         [HideInInspector] public BossAnimator bossAnimator;
         [HideInInspector] public Transform playerTransform;
 
         private Animator animator;
         private bool isDead = false;
-        private bool isPhase2 = false;
         private bool isStopped = false;
 
-        public bool IsPhase2 => isPhase2;
+        public Transform PlayerTransform => playerTransform;
+        public Transform BossTransform => transform;
 
-        void Awake()
+        private void Awake()
         {
             bossAnimator = GetComponent<BossAnimator>();
             animator = GetComponent<Animator>();
@@ -38,7 +27,7 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
             if (player != null) playerTransform = player.transform;
         }
 
-        void Start()
+        private void Start()
         {
             CurrentState = new BossIdleState(this);
         }

@@ -24,7 +24,6 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
 
             if (distance <= fsm.meleeTriggerDistance)
             {
-                FSM.NextState = new BossMeleeSequenceState(fsm);
                 StateStage = StateEvent.EXIT;
                 return;
             }

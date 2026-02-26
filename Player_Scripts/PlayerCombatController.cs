@@ -1,8 +1,9 @@
 ﻿using UnityEngine;
+using PlayerInputs.Core;
 
 namespace PlayerInputs
 {
-    public class PlayerCombatController : MonoBehaviour
+    public class PlayerCombatController : MonoBehaviour, IPlayerCombat
     {
         [SerializeField] private int maxCombo = 4;
         [SerializeField] private float comboResetTime = 0.8f;
@@ -15,10 +16,21 @@ namespace PlayerInputs
         
         public bool CanMove => canMove;
 
-        void Awake()
+        private void Awake()
         {
-            anim.OnAttackEnd += () => { isAttacking = false; comboResetTimer = comboResetTime; };
-            anim.OnCanMove += () => canMove = true;
+            anim.OnAttackEnd += ResetAttackState;
+            anim.OnCanMove += EnableMovement;
+        }
+
+        private void Update()
+        {
+            if (isAttacking) return;
+
+            if (comboResetTimer > 0)
+            {
+                comboResetTimer -= Time.deltaTime;
+                if (comboResetTimer <= 0) currentCombo = 0;
+            }
         }
 
         public void Attack()
@@ -31,15 +43,15 @@ namespace PlayerInputs
             anim.PlayAttack(currentCombo);
         }
 
-        void Update()
+        private void ResetAttackState()
         {
-            if (isAttacking) return;
+            isAttacking = false;
+            comboResetTimer = comboResetTime;
+        }
 
-            if (comboResetTimer > 0)
-            {
-                comboResetTimer -= Time.deltaTime;
-                if (comboResetTimer <= 0) currentCombo = 0;
-            }
+        private void EnableMovement()
+        {
+            canMove = true;
         }
     }
 }

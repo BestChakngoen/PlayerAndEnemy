@@ -1,69 +1,92 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class FPSMouseLook : MonoBehaviour
+namespace PlayerInputs
 {
-    [SerializeField] private Transform cameraRoot;
-    [SerializeField] private float sensitivityX = 0.15f;
-    [SerializeField] private float sensitivityY = 0.15f;
-    [SerializeField] private bool invertX = false;
-    [SerializeField] private bool invertY = false;
-    [SerializeField] private float minPitch = -80f;
-    [SerializeField] private float maxPitch = 80f;
-    
-    public enum CameraMode
+    public class FPSMouseLook : MonoBehaviour
     {
-        FirstPerson,
-        ThirdPerson
-    }
+        [SerializeField] private Transform cameraRoot;
+        [SerializeField] private Transform playerBody;
+        [SerializeField] private float sensitivityX = 0.5f;
+        [SerializeField] private float sensitivityY = 0.5f;
+        [SerializeField] private bool invertX = false;
+        [SerializeField] private bool invertY = false;
+        [SerializeField] private float minPitch = -80f;
+        [SerializeField] private float maxPitch = 80f;
+        
+        public enum CameraMode { FirstPerson, ThirdPerson }
 
-    [SerializeField] private CameraMode currentMode = CameraMode.FirstPerson;
+        [SerializeField] private CameraMode currentMode = CameraMode.FirstPerson;
 
-    private Vector2 lookInput;
-    private float pitch;
-    private bool isRotationLocked = false;
+        private Vector2 lookInput;
+        private float pitch;
+        private float yaw;
+        private bool isRotationLocked = false;
 
-    public void SetCameraMode(CameraMode mode)
-    {
-        currentMode = mode;
-    }
-
-    public void LockRotation(bool lockRotation)
-    {
-        isRotationLocked = lockRotation;
-    }
-
-    public void OnLook(InputAction.CallbackContext context)
-    {
-        lookInput = context.ReadValue<Vector2>();
-    }
-
-    void Update()
-    {
-        if (isRotationLocked) return;
-
-        if (currentMode == CameraMode.FirstPerson)
+        private void Start()
         {
-            RotateYaw();
-            RotatePitch();
+            SyncRotation();
         }
-    }
 
-    private void RotateYaw()
-    {
-        float mouseX = lookInput.x * sensitivityX;
-        if (invertX) mouseX *= -1f;
-        transform.Rotate(Vector3.up * mouseX);
-    }
+        public void SetCameraMode(CameraMode mode)
+        {
+            currentMode = mode;
+            if (currentMode == CameraMode.FirstPerson)
+            {
+                SyncRotation();
+            }
+        }
 
-    private void RotatePitch()
-    {
-        float mouseY = lookInput.y * sensitivityY;
-        if (!invertY) mouseY *= -1f;
+        private void SyncRotation()
+        {
+            if (playerBody != null)
+            {
+                yaw = playerBody.eulerAngles.y;
+            }
+            if (cameraRoot != null)
+            {
+                pitch = cameraRoot.localEulerAngles.x;
+                if (pitch > 180f) pitch -= 360f;
+            }
+        }
 
-        pitch += mouseY;
-        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        public void LockRotation(bool lockRotation) => isRotationLocked = lockRotation;
 
-        cameraRoot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        public void OnLook(InputAction.CallbackContext context)
+        {
+            lookInput = context.ReadValue<Vector2>();
+        }
+
+        private void LateUpdate()
+        {
+            if (isRotationLocked || currentMode != CameraMode.FirstPerson) return;
+            
+            CalculateRotation();
+            ApplyRotation();
+        }
+
+        private void CalculateRotation()
+        {
+            float mouseX = lookInput.x * sensitivityX;
+            float mouseY = lookInput.y * sensitivityY;
+
+            yaw += invertX ? -mouseX : mouseX;
+            pitch += invertY ? mouseY : -mouseY;
+            
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        }
+
+        private void ApplyRotation()
+        {
+            if (cameraRoot != null)
+            {
+                cameraRoot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            }
+            
+            if (playerBody != null)
+            {
+                playerBody.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            }
+        }
     }
 }
