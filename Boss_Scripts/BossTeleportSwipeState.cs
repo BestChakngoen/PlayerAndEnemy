@@ -18,7 +18,6 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
         {
             base.Enter();
             fsm.StopMovement();
-            
             sequenceCoroutine = fsm.StartCoroutine(ExecuteTeleportSequence());
         }
 
@@ -27,22 +26,14 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
             float warningDelay = Random.Range(0.1f, 0.5f);
             yield return new WaitForSeconds(warningDelay);
 
-            // 3. สั่งเล่น Animation โจมตี (Swiping)
             fsm.bossAnimator.TriggerSwiping();
-            
-            // 4. รอจนกว่าคลิปแอนิเมชัน Swiping จะเล่นจบ
             yield return new WaitForSeconds(1.5f);
             
-
-            // 6. กลับไปตั้งหลักที่ Idle State
             FSM.NextState = new BossIdleState(fsm);
             StateStage = StateEvent.EXIT;
         }
 
-        public override void Update()
-        {
-     
-        }
+        public override void Update() { }
 
         public override void Exit()
         {

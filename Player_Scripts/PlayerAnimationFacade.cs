@@ -8,15 +8,14 @@ namespace PlayerInputs
     {
         private Animator animator;
 
-        // =======================
-        // Events (แทนการเรียก Controller ตรง ๆ)
-        // =======================
         public enum AnimationType
         {
             Locomotion,
             Action
         }
+        
         private AnimationType currentAnimationType = AnimationType.Locomotion;
+        
         public event Action OnCanMove;
         public event Action OnAttackEnd;
         public event Action OnEnableWeapon;
@@ -24,9 +23,6 @@ namespace PlayerInputs
         public event Action OnEnableIFrame;
         public event Action OnDisableIFrame;
 
-        // =======================
-        // Animator Hash
-        // =======================
         private static readonly int SpeedHash        = Animator.StringToHash("Speed");
         private static readonly int IsComboHash      = Animator.StringToHash("IsCombo");
         private static readonly int AttackComboHash  = Animator.StringToHash("AttackCombo");
@@ -38,20 +34,13 @@ namespace PlayerInputs
         void Awake()
         {
             animator = GetComponent<Animator>();
-            if (animator == null)
-                Debug.LogError("Animator component not found!");
-            
             animator.applyRootMotion = false;
             currentAnimationType = AnimationType.Locomotion;
         }
-        // =======================
-        // Public API (Facade)
-        // =======================
 
         public void SetMovementSpeed(float speed)
         {
-            if (currentAnimationType == AnimationType.Action)
-                return;
+            if (currentAnimationType == AnimationType.Action) return;
             animator.applyRootMotion = false;
             animator.SetFloat(SpeedHash, speed);
         }
@@ -66,9 +55,6 @@ namespace PlayerInputs
             animator.SetInteger(AttackComboHash, combo);
         }
 
-        // =======================
-        // Action (Use Root Motion)
-        // =======================
         private void EnterActionState()
         {
             currentAnimationType = AnimationType.Action;
@@ -80,6 +66,7 @@ namespace PlayerInputs
             currentAnimationType = AnimationType.Locomotion;
             animator.applyRootMotion = false;
         }
+
         public void PlayAttack(int comboCounter)
         {
             EnterActionState();
@@ -110,31 +97,15 @@ namespace PlayerInputs
             animator.enabled = enable;
         }
 
-        // =======================
-        // State Query
-        // =======================
-
         public bool IsInNonCombatState()
         {
             AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-            return stateInfo.IsName("Idle")
-                || stateInfo.IsName("Walk")
-                || stateInfo.IsName("Roll");
-        }
-        public bool IsInLocomotion()
-        {
-            return currentAnimationType == AnimationType.Locomotion;
+            return stateInfo.IsName("Idle") || stateInfo.IsName("Walk") || stateInfo.IsName("Roll");
         }
 
-        public bool IsInAction()
-        {
-            return currentAnimationType == AnimationType.Action;
-        }
+        public bool IsInLocomotion() => currentAnimationType == AnimationType.Locomotion;
 
-        // =======================
-        // Animation Events
-        // (ผูกใน Animation Clip)
-        // =======================
+        public bool IsInAction() => currentAnimationType == AnimationType.Action;
 
         public void AnimEvent_AttackEnd()
         {
@@ -142,25 +113,10 @@ namespace PlayerInputs
             OnAttackEnd?.Invoke();
         }
 
-        public void AnimEvent_CanMove()
-        {
-            OnCanMove?.Invoke();
-        }
-
-        public void AnimEvent_EnableWeapon()
-        {
-            OnEnableWeapon?.Invoke();
-        }
-
-        public void AnimEvent_DisableWeapon()
-        {
-            OnDisableWeapon?.Invoke();
-        }
-
-        public void AnimEvent_EnableIFrame()
-        {
-            OnEnableIFrame?.Invoke();
-        }
+        public void AnimEvent_CanMove() => OnCanMove?.Invoke();
+        public void AnimEvent_EnableWeapon() => OnEnableWeapon?.Invoke();
+        public void AnimEvent_DisableWeapon() => OnDisableWeapon?.Invoke();
+        public void AnimEvent_EnableIFrame() => OnEnableIFrame?.Invoke();
 
         public void AnimEvent_DisableIFrame()
         {
@@ -168,33 +124,20 @@ namespace PlayerInputs
             ExitActionState();
         }
 
-        // =======================
-        // Death Animation Event
-        // =======================
-
         public void AnimEvent_DeathAnimationEnd()
         {
-            if (GameStateManager.Instance != null &&
-                GameStateManager.Instance.CurrentState != GameState.GameOver)
+            if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameState.GameOver)
             {
                 GameStateManager.Instance.SetState(GameState.GameOver);
             }
         }
-        
-        // =======================
-        // Utility
-        // =======================
-        public Animator GetAnimator()
-        {
-            return animator;
-        }
+
+        public Animator GetAnimator() => animator;
+
         public void SetLayerWeight(string layerName, float weight)
         {
             int index = animator.GetLayerIndex(layerName);
-            if (index >= 0)
-                animator.SetLayerWeight(index, weight);
+            if (index >= 0) animator.SetLayerWeight(index, weight);
         }
-
-
     }
 }

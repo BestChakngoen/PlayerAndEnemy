@@ -4,99 +4,42 @@ namespace PlayerInputs
 {
     public class PlayerCombatController : MonoBehaviour
     {
-        [Header("Combo Settings")]
         [SerializeField] private int maxCombo = 4;
         [SerializeField] private float comboResetTime = 0.8f;
-        [SerializeField] private FPSMouseLook mouseLook;
         [SerializeField] private PlayerAnimationFacade anim;
+        
         private int currentCombo;
         private bool isAttacking;
         private float comboResetTimer;
         private bool canMove = true;
+        
         public bool CanMove => canMove;
-        public bool IsAttacking => isAttacking;
 
-        private void Awake()
+        void Awake()
         {
-            if (anim == null)
-            {
-                Debug.LogError("PlayerAnimationFacade not found in children!", this);
-                enabled = false; 
-                return;
-            }
-            anim.OnAttackEnd += OnAttackEnd;
-            anim.OnCanMove += OnCanMove;
+            anim.OnAttackEnd += () => { isAttacking = false; comboResetTimer = comboResetTime; };
+            anim.OnCanMove += () => canMove = true;
         }
 
-        private void OnDestroy()
-        {
-            anim.OnAttackEnd -= OnAttackEnd;
-            anim.OnCanMove -= OnCanMove;
-        }
-
-        // =======================
-        // Public API
-        // =======================
         public void Attack()
         {
-            // ถ้าไม่อยู่ในสถานะ idle → เล่น attack ต่อทันที
+            if (isAttacking || !PlayerStateController.CanControl) return;
+
             canMove = false;
-            if (!isAttacking)
+            isAttacking = true;
+            currentCombo = (currentCombo % maxCombo) + 1;
+            anim.PlayAttack(currentCombo);
+        }
+
+        void Update()
+        {
+            if (isAttacking) return;
+
+            if (comboResetTimer > 0)
             {
-                currentCombo++;
-
-                if (currentCombo > maxCombo)
-                    currentCombo = 0;
-
-                //mouseLook.LockRotation(true);
-                isAttacking = true;
-                comboResetTimer = 0f;
-                anim.PlayAttack(currentCombo);
+                comboResetTimer -= Time.deltaTime;
+                if (comboResetTimer <= 0) currentCombo = 0;
             }
-        }
-
-        // =======================
-        // Animation Event
-        // =======================
-        private void OnAttackEnd()
-        {
-            //mouseLook.LockRotation(false);
-            isAttacking = false;
-            comboResetTimer = comboResetTime;
-        }
-
-        private void OnCanMove()
-        {
-            canMove = true;
-        }
-
-        private void Update()
-        {
-            //Debug.Log(canMove);
-            if (!PlayerStateController.CanControl) return;
-
-            HandleComboReset();
-        }
-
-        private void HandleComboReset()
-        {
-            if (isAttacking || comboResetTimer <= 0f)
-                return;
-
-            comboResetTimer -= Time.deltaTime;
-            //Debug.Log("comboResetTimer" + comboResetTimer);
-
-            if (comboResetTimer <= 0f)
-            {
-                ResetCombo();
-            }
-        }
-
-        private void ResetCombo()
-        {
-            currentCombo = 0;
-            comboResetTimer = 0f;
-            anim.SetAttackCombo(currentCombo);
         }
     }
 }

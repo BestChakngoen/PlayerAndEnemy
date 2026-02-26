@@ -11,16 +11,8 @@
             StateStage = StateEvent.ENTER; 
         }
 
-        public virtual void Enter() 
-        {
-            StateStage = StateEvent.UPDATE; 
-        }
-
+        public virtual void Enter() => StateStage = StateEvent.UPDATE;
         public abstract void Update(); 
-
-        public virtual void Exit() 
-        {
-            StateStage = StateEvent.EXIT; 
-        }
+        public virtual void Exit() => StateStage = StateEvent.EXIT;
     }
 }

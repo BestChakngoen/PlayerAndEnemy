@@ -64,24 +64,6 @@ namespace PlayerInputs
                 stamina.TryRoll();
             };
 
-            controls.Player.Ability1.performed += _ =>
-            {
-                if (cameraViewSwitcher.IsFirstPerson) return;
-                skill.CastSkill(0);
-            };
-
-            controls.Player.Ability2.performed += _ =>
-            {
-                if (cameraViewSwitcher.IsFirstPerson) return;
-                skill.CastSkill(1);
-            };
-
-            controls.Player.Ability3.performed += _ =>
-            {
-                if (cameraViewSwitcher.IsFirstPerson) return;
-                skill.CastSkill(2);
-            };
-
             // ===== Switch View =====
             controls.Player.SwitchView.performed += _ =>
             {

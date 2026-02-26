@@ -5,24 +5,21 @@ namespace PlayerInputs
 {
     public class PlayerStaminaController : MonoBehaviour
     {
-        [Header("Stamina Settings")]
         public float maxStamina = 100f;
         public float regenRate = 10f;
         public float rollCost = 20f;
         public float rollCooldown = 2f;
 
-        [Header("UI")]
         [SerializeField] private Slider staminaSlider;
+        [SerializeField] private PlayerAnimationFacade animationFacade;
 
         private float stamina;
         private float cooldown;
-        [SerializeField] private PlayerAnimationFacade animationFacade;
 
         void Awake()
         {
             if (animationFacade == null)
             {
-                Debug.LogError("PlayerAnimationFacade not found in children!", this);
                 enabled = false; 
                 return;
             }
@@ -47,39 +44,23 @@ namespace PlayerInputs
             HandleCooldown();
         }
 
-        // =======================
-        // Public API
-        // =======================
-
         public bool TryRoll()
         {
-            if (stamina < rollCost || cooldown > 0f)
-                return false;
+            if (stamina < rollCost || cooldown > 0f) return false;
 
             stamina -= rollCost;
             cooldown = rollCooldown;
 
             UpdateStaminaUI();
 
-            if (animationFacade != null)
-                animationFacade.PlayRoll();
+            if (animationFacade != null) animationFacade.PlayRoll();
 
             return true;
         }
 
-        public float GetCurrentStamina()
-        {
-            return stamina;
-        }
+        public float GetCurrentStamina() => stamina;
 
-        public bool HasEnoughStamina(float cost)
-        {
-            return stamina >= cost;
-        }
-
-        // =======================
-        // Internal Logic
-        // =======================
+        public bool HasEnoughStamina(float cost) => stamina >= cost;
 
         private void HandleRegen()
         {

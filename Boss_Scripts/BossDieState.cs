@@ -16,23 +16,11 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
         public override void Enter()
         {
             base.Enter();
-
-            // แทนการหยุด NavMeshAgent
             fsm.StopMovement();
-
-            // เล่น Animation ตาย
             fsm.bossAnimator.TriggerDie();
         }
 
-        public override void Update()
-        {
-            // Die state ไม่ต้อง update logic ใด ๆ
-        }
-
-        public override void Exit()
-        {
-            base.Exit();
-        }
+        public override void Update() { }
 
         public void OnAttackAnimationEnd() { }
 
@@ -52,7 +40,6 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
         }
 
         public void OnRoarAnimationEnd() { }
-        
         public void OnActionSequenceEnd() { }
     }
 }
