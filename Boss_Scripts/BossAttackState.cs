@@ -1,11 +1,12 @@
 ﻿using UnityEngine;
 using BasicEnemy;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
-    public class BossAttackState : State, BossFSM.IAnimationEventHandler
+    public class BossAttackState : State
     {
         private BossFSM fsm;
+        private float actionTimer;
 
         public BossAttackState(FiniteStateMachine fsm) : base(fsm) 
         {
@@ -15,20 +16,23 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
         public override void Enter()
         {
             base.Enter();
+            actionTimer = 0f;
             fsm.LookAtPlayerImmediate(); 
             fsm.bossAnimator.TriggerAttack();
         }
 
-        public override void Update() { }
-
-        public void OnAttackAnimationEnd()
+        public override void Update() 
         {
-            FSM.NextState = new BossIdleState(fsm);
-            StateStage = StateEvent.EXIT;
-        }
+            Animator animator = fsm.GetComponent<Animator>();
+            AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+            float currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
 
-        public void OnDeathAnimationEnd() { }
-        public void OnRoarAnimationEnd() { }
-        public void OnActionSequenceEnd() { }
+            actionTimer += Time.deltaTime;
+            if (actionTimer >= currentAnimLength)
+            {
+                FSM.NextState = new BossIdleState(fsm);
+                StateStage = StateEvent.EXIT;
+            }
+        }
     }
 }

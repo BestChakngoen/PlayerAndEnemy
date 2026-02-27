@@ -1,14 +1,18 @@
-﻿using UnityEngine;
-using BasicEnemy.Enemy.Core;
+﻿using BasicEnemy;
+using UnityEngine;
+using Boss.core;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
     public class BossWalkBackState : State
     {
         private BossFSM fsm;
-        private float timer;
-        private float duration = 1.5f;
-        private float speed = 2.5f;
+        private float actionTimer;
+        private bool isGoingLeft;
+        private float speed = 1f;
+        
+        private int currentDodgeCount = 0;
+        private int maxDodgeCount = 4;
 
         public BossWalkBackState(BossFSM fsm) : base(fsm)
         {
@@ -17,25 +21,67 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
 
         public override void Enter()
         {
-            timer = duration;
-            Animator anim = fsm.GetComponent<Animator>();
-            if (anim != null)
-            {
-                anim.SetFloat("Speed", -1f);
-            }
+            base.Enter();
+            currentDodgeCount = 0;
+            isGoingLeft = Random.value > 0.5f;
+            TriggerDodgeAction();
+        }
+
+        private void TriggerDodgeAction()
+        {
+            actionTimer = 0f;
+            fsm.bossAnimator.TriggerGetAway(isGoingLeft);
         }
 
         public override void Update()
         {
-            fsm.RotateToPlayerSmoothly(5f);
-
-            Vector3 moveDirection = -fsm.BossTransform.forward;
-            fsm.BossTransform.position += moveDirection * speed * Time.deltaTime;
-
-            timer -= Time.deltaTime;
-            if (timer <= 0)
+            if (fsm.playerTransform != null)
             {
-                fsm.NextState = new BossScreamState(fsm);
+                float distance = Vector3.Distance(fsm.BossTransform.position, fsm.playerTransform.position);
+                if (distance <= fsm.meleeTriggerDistance && fsm.meleeAttackTimer <= 0f)
+                {
+                    fsm.NextState = new BossMeleeAttackState(fsm);
+                    StateStage = StateEvent.EXIT;
+                    return;
+                }
+            }
+
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            
+            if (animator != null)
+            {
+                AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+                float currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
+
+                fsm.RotateToPlayerSmoothly(5f);
+
+                Vector3 backDirection = -fsm.BossTransform.forward;
+                Vector3 sideDirection = isGoingLeft ? -fsm.BossTransform.right : fsm.BossTransform.right;
+                
+                Vector3 moveDirection = (backDirection + sideDirection * 0.5f).normalized;
+                
+                fsm.BossTransform.position += moveDirection * (speed * fsm.baseSpeedMultiplier) * Time.deltaTime;
+
+                actionTimer += Time.deltaTime;
+                if (actionTimer >= currentAnimLength + 0.1f)
+                {
+                    OnDodgeSequenceEnd();
+                }
+            }
+        }
+
+        private void OnDodgeSequenceEnd()
+        {
+            currentDodgeCount++;
+            
+            if (currentDodgeCount < maxDodgeCount)
+            {
+                isGoingLeft = !isGoingLeft;
+                TriggerDodgeAction();
+            }
+            else
+            {
+                fsm.NextState = new BossIdleState(fsm);
                 StateStage = StateEvent.EXIT;
             }
         }

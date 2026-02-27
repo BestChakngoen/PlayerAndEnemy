@@ -1,9 +1,10 @@
 ﻿using UnityEngine;
 using PlayerInputs.Core;
+using Boss.core;
 
 namespace PlayerInputs
 {
-    public class PlayerMovementController : MonoBehaviour, IPlayerMovement
+    public class PlayerMovementController : MonoBehaviour, IPlayerMovement, ISpeedModifiable
     {
         public enum MovementMode { FirstPerson, ThirdPerson }
 
@@ -18,6 +19,8 @@ namespace PlayerInputs
         private Vector2 moveInput;
         private IPlayerCombat combatState;
         private Transform playerRoot;
+        
+        private float speedMultiplier = 1.0f;
 
         private void Awake()
         {
@@ -59,7 +62,7 @@ namespace PlayerInputs
 
             if (moveInput.sqrMagnitude > 0.01f)
             {
-                controller.Move(moveDirection.normalized * moveSpeed * Time.deltaTime);
+                controller.Move(moveDirection.normalized * (moveSpeed * speedMultiplier) * Time.deltaTime);
             }
 
             animationFacade.SetMovementSpeed(moveInput.magnitude);
@@ -81,6 +84,19 @@ namespace PlayerInputs
         {
             Quaternion targetRot = Quaternion.LookRotation(direction);
             playerRoot.rotation = Quaternion.Slerp(playerRoot.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        }
+
+        public void MultiplySpeed(float multiplier)
+        {
+            speedMultiplier *= multiplier;
+        }
+
+        public void DivideSpeed(float multiplier)
+        {
+            if (multiplier != 0)
+            {
+                speedMultiplier /= multiplier;
+            }
         }
     }
 }

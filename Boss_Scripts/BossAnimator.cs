@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
     public class BossAnimator : MonoBehaviour
     {
@@ -25,9 +25,7 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
             if(goLeft) animator.SetTrigger("GetAwayLeft");
             else animator.SetTrigger("GetAwayRight");
         }
-
-        public void AnimationEvent_OnDeathEnd() => aiController.OnDeathAnimationEnd();
-        public void AnimationEvent_OnRoarEnd() => aiController.OnRoarAnimationEnd();
-        public void AnimationEvent_OnActionEnd() => aiController.OnActionSequenceEnd();
+        
+        
     }
 }

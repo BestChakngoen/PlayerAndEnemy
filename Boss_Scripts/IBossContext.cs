@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace BasicEnemy.Enemy.Core
+namespace Boss.core
 {
     public interface IBossContext
     {

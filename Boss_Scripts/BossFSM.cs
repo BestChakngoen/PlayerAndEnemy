@@ -1,40 +1,54 @@
-﻿using UnityEngine;
-using BasicEnemy.Enemy.Core;
+﻿using System.Collections.Generic;
+using BasicEnemy;
+using UnityEngine;
+using Boss.core;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
-    public class BossFSM : FiniteStateMachine, IBossContext
+    public class BossFSM : FiniteStateMachine, ISpeedModifiable
     {
-        [Header("Boss Logic Settings")]
-        public float meleeTriggerDistance = 1.5f;
+        public Transform playerTransform;
+        public Transform BossTransform;
+        public BossAnimator bossAnimator;
+        
+        public float meleeTriggerDistance = 2.0f;
+        public float meleeAttackCooldown = 3.0f;
+        [HideInInspector] public float meleeAttackTimer = 0f;
+        public float baseSpeedMultiplier = 1.0f; 
+        
+        public List<BossSkillSO> bossSkills = new List<BossSkillSO>();
+        private Dictionary<BossSkillSO, float> skillCooldownTimers = new Dictionary<BossSkillSO, float>();
 
-        [HideInInspector] public BossAnimator bossAnimator;
-        [HideInInspector] public Transform playerTransform;
-
-        private Animator animator;
         private bool isDead = false;
         private bool isStopped = false;
 
-        public Transform PlayerTransform => playerTransform;
-        public Transform BossTransform => transform;
-
-        private void Awake()
+        protected virtual void Awake()
         {
-            bossAnimator = GetComponent<BossAnimator>();
-            animator = GetComponent<Animator>();
+            if (BossTransform == null) BossTransform = transform;
+            if (bossAnimator == null) bossAnimator = GetComponent<BossAnimator>();
 
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null) playerTransform = player.transform;
         }
 
-        private void Start()
+        protected virtual void Start()
         {
+            foreach (var skill in bossSkills)
+            {
+                if (skill != null && !skillCooldownTimers.ContainsKey(skill))
+                {
+                    skillCooldownTimers[skill] = 0f;
+                }
+            }
+
             CurrentState = new BossIdleState(this);
         }
 
         protected override void Update()
         {
             if (isDead) return;
+
+            if (meleeAttackTimer > 0) meleeAttackTimer -= Time.deltaTime;
 
             if (playerTransform == null)
             {
@@ -45,54 +59,106 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
                 return;
             }
 
+            UpdateSkillCooldowns();
+            
+            if (TryExecuteSkills())
+            {
+                return;
+            }
+
             base.Update();
         }
 
-        public interface IAnimationEventHandler
+        private void UpdateSkillCooldowns()
         {
-            void OnAttackAnimationEnd();
-            void OnDeathAnimationEnd();
-            void OnRoarAnimationEnd();
-            void OnActionSequenceEnd();
+            List<BossSkillSO> keys = new List<BossSkillSO>(skillCooldownTimers.Keys);
+            foreach (var skill in keys)
+            {
+                if (skillCooldownTimers[skill] > 0)
+                {
+                    skillCooldownTimers[skill] -= Time.deltaTime;
+                }
+            }
         }
 
-        public void OnAttackAnimationEnd() => (CurrentState as IAnimationEventHandler)?.OnAttackAnimationEnd();
-        public void OnDeathAnimationEnd() => (CurrentState as IAnimationEventHandler)?.OnDeathAnimationEnd();
-        public void OnRoarAnimationEnd() => (CurrentState as IAnimationEventHandler)?.OnRoarAnimationEnd();
-        public void OnActionSequenceEnd() => (CurrentState as IAnimationEventHandler)?.OnActionSequenceEnd();
+        private bool TryExecuteSkills()
+        {
+            foreach (var skill in bossSkills)
+            {
+                if (skillCooldownTimers[skill] <= 0f && skill.CanExecute(this))
+                {
+                    skillCooldownTimers[skill] = skill.cooldown;
+                    skill.Execute(this);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public void MultiplySpeed(float multiplier)
+        {
+            baseSpeedMultiplier *= multiplier;
+            Animator anim = bossAnimator.GetComponent<Animator>();
+            if(anim != null) anim.speed *= multiplier;
+        }
+
+        public void DivideSpeed(float multiplier)
+        {
+            if (multiplier != 0)
+            {
+                baseSpeedMultiplier /= multiplier;
+                Animator anim = bossAnimator.GetComponent<Animator>();
+                if(anim != null) anim.speed /= multiplier;
+            }
+        }
+
+        public void StopMovement()
+        {
+            isStopped = true;
+        }
+
+        public void ResumeMovement()
+        {
+            isStopped = false;
+        }
+
+        public void LookAtPlayerImmediate()
+        {
+            if (playerTransform == null) return;
+            
+            Vector3 dir = playerTransform.position - BossTransform.position;
+            dir.y = 0;
+            
+            if (dir != Vector3.zero)
+            {
+                BossTransform.rotation = Quaternion.LookRotation(dir);
+            }
+        }
+
+        public void RotateToPlayerSmoothly(float speed)
+        {
+            if (playerTransform == null) return;
+            
+            Vector3 dir = playerTransform.position - BossTransform.position;
+            dir.y = 0;
+            
+            if (dir != Vector3.zero)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(dir);
+                BossTransform.rotation = Quaternion.Slerp(BossTransform.rotation, targetRot, speed * Time.deltaTime);
+            }
+        }
 
         public void DieLogic()
         {
             if (isDead) return;
             isDead = true;
 
-            if (animator != null) animator.speed = 1f;
-
             NextState = new BossDieState(this);
-            CurrentState.StateStage = StateEvent.EXIT;
-        }
-
-        public void RotateToPlayerSmoothly(float speed = 5f)
-        {
-            if (playerTransform == null) return;
-            Vector3 direction = playerTransform.position - transform.position;
-            direction.y = 0;
-            if (direction != Vector3.zero)
+            if (CurrentState != null)
             {
-                Quaternion targetRotation = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * speed);
+                CurrentState.StateStage = StateEvent.EXIT;
             }
         }
-
-        public void LookAtPlayerImmediate()
-        {
-            if (playerTransform == null) return;
-            Vector3 direction = playerTransform.position - transform.position;
-            direction.y = 0;
-            transform.forward = direction.normalized;
-        }
-
-        public void StopMovement() => isStopped = true;
-        public void ResumeMovement() => isStopped = false;
     }
 }

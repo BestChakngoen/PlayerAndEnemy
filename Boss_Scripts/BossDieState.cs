@@ -2,11 +2,12 @@
 using BasicEnemy;
 using GameManger;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
-    public class BossDieState : State, BossFSM.IAnimationEventHandler
+    public class BossDieState : State
     {
         private BossFSM fsm;
+        private float actionTimer;
 
         public BossDieState(FiniteStateMachine fsm) : base(fsm)
         {
@@ -17,29 +18,31 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
         {
             base.Enter();
             fsm.StopMovement();
+            actionTimer = 0f;
             fsm.bossAnimator.TriggerDie();
         }
 
-        public override void Update() { }
-
-        public void OnAttackAnimationEnd() { }
-
-        public void OnDeathAnimationEnd()
+        public override void Update()
         {
-            if (WaveManager.Instance != null)
-            {
-                WaveManager.Instance.MonsterDied();
-            }
+            Animator animator = fsm.GetComponent<Animator>();
+            AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+            float currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
 
-            if (UIManager.Instance != null)
+            actionTimer += Time.deltaTime;
+            if (actionTimer >= currentAnimLength)
             {
-                UIManager.Instance.AddKill();
-            }
+                if (WaveManager.Instance != null)
+                {
+                    WaveManager.Instance.MonsterDied();
+                }
 
-            Object.Destroy(fsm.gameObject);
+                if (UIManager.Instance != null)
+                {
+                    UIManager.Instance.AddKill();
+                }
+
+                Object.Destroy(fsm.gameObject);
+            }
         }
-
-        public void OnRoarAnimationEnd() { }
-        public void OnActionSequenceEnd() { }
     }
 }

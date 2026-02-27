@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
 using BasicEnemy;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
-    public class BossIdleState : State, BossFSM.IAnimationEventHandler
+    public class BossIdleState : State
     {
         private BossFSM fsm;
 
@@ -22,8 +22,9 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
 
             float distance = Vector3.Distance(fsm.transform.position, fsm.playerTransform.position);
 
-            if (distance <= fsm.meleeTriggerDistance)
+            if (distance <= fsm.meleeTriggerDistance && fsm.meleeAttackTimer <= 0f)
             {
+                FSM.NextState = new BossMeleeAttackState(fsm);
                 StateStage = StateEvent.EXIT;
                 return;
             }
@@ -41,10 +42,5 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
                 }
             }
         }
-
-        public void OnActionSequenceEnd() { }
-        public void OnAttackAnimationEnd() { }
-        public void OnDeathAnimationEnd() { }
-        public void OnRoarAnimationEnd() { }
     }
 }

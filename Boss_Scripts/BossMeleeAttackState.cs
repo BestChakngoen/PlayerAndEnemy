@@ -1,13 +1,13 @@
-﻿using UnityEngine;
-using BasicEnemy.Enemy.Core;
+﻿using BasicEnemy;
+using UnityEngine;
+using Boss.core;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
-    public class BossMeleeAttackState : State, BossFSM.IAnimationEventHandler
+    public class BossMeleeAttackState : State
     {
         private BossFSM fsm;
-        private float safetyTimer;
-        private float maxDuration = 2.0f;
+        private float actionTimer;
 
         public BossMeleeAttackState(BossFSM fsm) : base(fsm)
         {
@@ -16,39 +16,39 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
 
         public override void Enter()
         {
-            safetyTimer = maxDuration;
+            base.Enter();
+            actionTimer = 0f;
+            fsm.meleeAttackTimer = fsm.meleeAttackCooldown;
             fsm.StopMovement();
             fsm.LookAtPlayerImmediate();
-            
-            Animator anim = fsm.GetComponent<Animator>();
-            if (anim != null)
-            {
-                anim.SetTrigger("Attack"); 
-            }
+            fsm.bossAnimator.TriggerMutantPunch();
         }
 
         public override void Update()
         {
-            safetyTimer -= Time.deltaTime;
-            if (safetyTimer <= 0)
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            if (animator != null)
             {
-                OnAttackAnimationEnd();
+                AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+                float currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
+
+                actionTimer += Time.deltaTime;
+                if (actionTimer >= currentAnimLength + 0.1f)
+                {
+                    fsm.NextState = new BossWalkBackState(fsm);
+                    StateStage = StateEvent.EXIT;
+                }
             }
         }
 
-        public void OnAttackAnimationEnd()
+        public override void Exit()
         {
-            if (StateStage != StateEvent.UPDATE) return;
-
-            Animator anim = fsm.GetComponent<Animator>();
-            if (anim != null) anim.ResetTrigger("MutantPunch");
-
-            fsm.NextState = new BossWalkBackState(fsm);
-            StateStage = StateEvent.EXIT;
+            base.Exit();
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            if (animator != null)
+            {
+                animator.ResetTrigger("MutantPunch");
+            }
         }
-
-        public void OnRoarAnimationEnd() { }
-        public void OnDeathAnimationEnd() { }
-        public void OnActionSequenceEnd() { }
     }
 }

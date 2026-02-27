@@ -1,13 +1,17 @@
 ﻿using UnityEngine;
 using BasicEnemy;
 
-namespace BasicEnemy.Enemy.Wendigo_FolkFall
+namespace Boss.scripts
 {
-    public class BossStareState : State, BossFSM.IAnimationEventHandler
+    public class BossStareState : State
     {
         private BossFSM fsm;
         private bool isTurning = false;
         private float turnCooldownTimer = 0f;
+        private float actionTimer = 0f;
+        
+        private Quaternion startRotation;
+        private Quaternion targetRotation;
 
         public BossStareState(FiniteStateMachine fsm) : base(fsm) => this.fsm = (BossFSM)fsm;
 
@@ -15,14 +19,44 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
         {
             base.Enter();
             fsm.StopMovement();
-            fsm.bossAnimator.SetSpeed(0f);
+
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            if (animator != null) animator.SetTrigger("Idle");
+
             isTurning = false; 
             turnCooldownTimer = 0f;
+            actionTimer = 0f;
         }
 
         public override void Update()
         {
             if (fsm.playerTransform == null) return;
+
+            float distance = Vector3.Distance(fsm.transform.position, fsm.playerTransform.position);
+            if (distance <= fsm.meleeTriggerDistance && fsm.meleeAttackTimer <= 0f)
+            {
+                FSM.NextState = new BossMeleeAttackState(fsm);
+                StateStage = StateEvent.EXIT;
+                return;
+            }
+
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+            float currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
+
+            if (isTurning)
+            {
+                actionTimer += Time.deltaTime;
+                float progress = Mathf.Clamp01(actionTimer / currentAnimLength);
+                fsm.transform.rotation = Quaternion.Slerp(startRotation, targetRotation, progress);
+
+                if (actionTimer >= currentAnimLength)
+                {
+                    fsm.transform.rotation = targetRotation;
+                    OnTurnSequenceEnd();
+                }
+                return;
+            }
 
             Vector3 dirToPlayer = fsm.playerTransform.position - fsm.transform.position;
             dirToPlayer.y = 0;
@@ -39,12 +73,18 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
                 return;
             }
 
-            if (turnCooldownTimer > 0) turnCooldownTimer -= Time.deltaTime;
+            if (turnCooldownTimer > 0)
+            {
+                turnCooldownTimer -= Time.deltaTime;
+            }
 
             if (!isTurning && turnCooldownTimer <= 0f && absAngle > 15f)
             {
                 isTurning = true;
-                Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+                actionTimer = 0f;
+                
+                startRotation = fsm.transform.rotation;
+                targetRotation = Quaternion.LookRotation(dirToPlayer);
 
                 if (angleToPlayer > 0f)
                 {
@@ -57,19 +97,15 @@ namespace BasicEnemy.Enemy.Wendigo_FolkFall
                     else animator.SetTrigger("TurnLeft45");
                 }
             }
-
-            if (isTurning) fsm.RotateToPlayerSmoothly(6f);
         }
 
-        public void OnActionSequenceEnd()
+        private void OnTurnSequenceEnd()
         {
-            fsm.LookAtPlayerImmediate();
             isTurning = false;
-            turnCooldownTimer = 15f; 
-        }
+            turnCooldownTimer = 1.5f; 
 
-        public void OnAttackAnimationEnd() { }
-        public void OnDeathAnimationEnd() { }
-        public void OnRoarAnimationEnd() { }
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            if (animator != null) animator.SetTrigger("Idle");
+        }
     }
 }
