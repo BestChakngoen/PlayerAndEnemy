@@ -2,6 +2,7 @@
 using BasicEnemy;
 using UnityEngine;
 using Boss.core;
+using CCSystem;
 
 namespace Boss.scripts
 {
@@ -15,6 +16,9 @@ namespace Boss.scripts
         public float meleeAttackCooldown = 3.0f;
         [HideInInspector] public float meleeAttackTimer = 0f;
         public float baseSpeedMultiplier = 1.0f; 
+        
+        [Header("CC Effects")]
+        public List<CCEffectSO> ccEffects = new List<CCEffectSO>();
         
         public List<BossSkillSO> bossSkills = new List<BossSkillSO>();
         private Dictionary<BossSkillSO, float> skillCooldownTimers = new Dictionary<BossSkillSO, float>();

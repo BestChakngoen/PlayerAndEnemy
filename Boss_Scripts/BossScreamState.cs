@@ -1,6 +1,7 @@
 ﻿using BasicEnemy;
 using UnityEngine;
 using Boss.core;
+using CCSystem;
 
 namespace Boss.scripts
 {
@@ -9,7 +10,7 @@ namespace Boss.scripts
         private BossFSM fsm;
         private BossScreamSkillSO skill;
         private float actionTimer;
-        private bool hasDebuffed = false;
+        private bool hasDebuffed;
 
         public BossScreamState(BossFSM fsm, BossScreamSkillSO skill) : base(fsm)
         {
@@ -25,9 +26,10 @@ namespace Boss.scripts
             hasDebuffed = false;
             
             Animator anim = fsm.bossAnimator.GetComponent<Animator>();
-            if (anim != null) anim.SetFloat("Speed", 0f);
-            
-            fsm.bossAnimator.TriggerScream();
+            if (anim != null)
+            {
+                anim.SetTrigger("Scream");
+            }
         }
 
         public override void Update()
@@ -43,7 +45,7 @@ namespace Boss.scripts
                 if (!hasDebuffed && actionTimer >= currentAnimLength * 0.5f)
                 {
                     hasDebuffed = true;
-                    ApplyScreamDebuff();
+                    ApplyScreamStun();
                 }
 
                 if (actionTimer >= currentAnimLength + 0.1f)
@@ -54,17 +56,17 @@ namespace Boss.scripts
             }
         }
 
-        private void ApplyScreamDebuff()
+        private void ApplyScreamStun()
         {
-            if (fsm.playerTransform != null && skill != null && skill.debuffEffect != null)
+            if (fsm.playerTransform != null && skill != null)
             {
                 float distance = Vector3.Distance(fsm.BossTransform.position, fsm.playerTransform.position);
-                if (distance <= skill.effectRange)
+                if (distance <= skill.effectRange && skill.stunEffect != null)
                 {
-                    IEffectable effectable = fsm.playerTransform.GetComponent<IEffectable>();
-                    if (effectable != null)
+                    ICrowdControlReceiver ccReceiver = fsm.playerTransform.GetComponentInChildren<ICrowdControlReceiver>();
+                    if (ccReceiver != null)
                     {
-                        effectable.AddEffect(skill.debuffEffect);
+                        ccReceiver.AddCC(skill.stunEffect, fsm.BossTransform.position);
                     }
                 }
             }

@@ -16,6 +16,11 @@ namespace PlayerInputs
         public float moveSpeed = 5f;
         public float rotationSpeed = 10f;
 
+        [Header("Roll Settings")]
+        public float rollSpeed = 8f; // กำหนดความเร็วในการกลิ้งได้ที่ Inspector
+        private bool isRolling = false;
+        private Vector3 rollDirection;
+
         private Vector2 moveInput;
         private IPlayerCombat combatState;
         private Transform playerRoot;
@@ -27,6 +32,19 @@ namespace PlayerInputs
             combatState = GetComponentInChildren<IPlayerCombat>();
             if (controller != null) playerRoot = controller.transform;
             if (cameraTransform == null && Camera.main != null) cameraTransform = Camera.main.transform;
+
+            if (animationFacade != null)
+            {
+                animationFacade.OnRollEnd += EndRoll;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (animationFacade != null)
+            {
+                animationFacade.OnRollEnd -= EndRoll;
+            }
         }
 
         private void Update()
@@ -43,9 +61,40 @@ namespace PlayerInputs
 
         public void SetMovementMode(MovementMode mode) => currentMode = mode;
 
+        public void StartRoll()
+        {
+            if (isRolling) return;
+            
+            isRolling = true;
+            Vector3 moveDir = CalculateMoveDirection();
+            
+            // ตรวจสอบว่าผู้เล่นกดทิศทางอยู่หรือไม่ ถ้ากดให้กลิ้งไปทางนั้น ถ้าไม่ได้กดให้กลิ้งไปด้านหน้าตัวละคร
+            if (moveDir.sqrMagnitude > 0.01f)
+            {
+                rollDirection = moveDir.normalized;
+            }
+            else
+            {
+                rollDirection = playerRoot.forward;
+            }
+        }
+
+        private void EndRoll()
+        {
+            isRolling = false;
+        }
+
         private void HandleMovementAndRotation()
         {
             if (playerRoot == null) return;
+
+            // หากอยู่สถานะกลิ้ง ให้บังคับขยับตัวและหันหน้าตามทิศทางกลิ้งอย่างเดียว
+            if (isRolling)
+            {
+                controller.Move(rollDirection * rollSpeed * Time.deltaTime);
+                RotatePlayerTowards(rollDirection);
+                return; 
+            }
 
             if (combatState != null && !combatState.CanMove)
             {

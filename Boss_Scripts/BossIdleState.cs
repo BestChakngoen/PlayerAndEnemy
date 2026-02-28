@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using BasicEnemy;
+using Boss.core;
 
 namespace Boss.scripts
 {
@@ -14,6 +15,8 @@ namespace Boss.scripts
             base.Enter();
             fsm.StopMovement();              
             fsm.bossAnimator.SetSpeed(0f);
+            Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+            if (animator != null) animator.SetTrigger("Idle");
         }
 
         public override void Update()

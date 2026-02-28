@@ -15,6 +15,7 @@ namespace PlayerInputs
 
         private float stamina;
         private float cooldown;
+        private PlayerMovementController movementController;
 
         void Awake()
         {
@@ -23,6 +24,8 @@ namespace PlayerInputs
                 enabled = false; 
                 return;
             }
+            // ดึงค่า Controller ไว้สำหรับสั่งการกลิ้ง
+            movementController = GetComponent<PlayerMovementController>();
         }
 
         void Start()
@@ -53,7 +56,9 @@ namespace PlayerInputs
 
             UpdateStaminaUI();
 
+            // สั่งเล่น Animation และเริ่มการคำนวณ Movement ใหม่ทันที
             if (animationFacade != null) animationFacade.PlayRoll();
+            if (movementController != null) movementController.StartRoll();
 
             return true;
         }

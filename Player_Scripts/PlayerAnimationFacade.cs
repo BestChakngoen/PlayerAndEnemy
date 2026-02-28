@@ -6,18 +6,20 @@ namespace PlayerInputs
 {
     public class PlayerAnimationFacade : MonoBehaviour
     {
-        private Animator animator;
-
         public enum AnimationType
         {
             Locomotion,
             Action
         }
-        
+
+        private Animator animator;
         private AnimationType currentAnimationType = AnimationType.Locomotion;
         
         public event Action OnCanMove;
+        public event Action OnCanNotMove;
         public event Action OnAttackEnd;
+        public event Action OnRollStart;
+        public event Action OnRollEnd;
         public event Action OnEnableWeapon;
         public event Action OnDisableWeapon;
         public event Action OnEnableIFrame;
@@ -26,6 +28,7 @@ namespace PlayerInputs
         private static readonly int SpeedHash        = Animator.StringToHash("Speed");
         private static readonly int IsComboHash      = Animator.StringToHash("IsCombo");
         private static readonly int AttackComboHash  = Animator.StringToHash("AttackCombo");
+        private static readonly int IsStunnedHash    = Animator.StringToHash("IsStunned");
         private static readonly int AttackTrigger    = Animator.StringToHash("Attack");
         private static readonly int RollTrigger      = Animator.StringToHash("Roll");
         private static readonly int CastTrigger      = Animator.StringToHash("Cast");
@@ -55,6 +58,20 @@ namespace PlayerInputs
             animator.SetInteger(AttackComboHash, combo);
         }
 
+        public void SetStunState(bool isStunned)
+        {
+            animator.SetBool(IsStunnedHash, isStunned);
+            
+            if (isStunned)
+            {
+                currentAnimationType = AnimationType.Action;
+            }
+            else
+            {
+                currentAnimationType = AnimationType.Locomotion;
+            }
+        }
+
         private void EnterActionState()
         {
             currentAnimationType = AnimationType.Action;
@@ -76,8 +93,11 @@ namespace PlayerInputs
 
         public void PlayRoll()
         {
+            animator.ResetTrigger(AttackTrigger);
             EnterActionState();
+            animator.applyRootMotion = false;
             animator.SetTrigger(RollTrigger);
+            OnRollStart?.Invoke();
         }
 
         public void PlayCastSkill()
@@ -113,7 +133,14 @@ namespace PlayerInputs
             OnAttackEnd?.Invoke();
         }
 
+        public void AnimEvent_RollEnd()
+        {
+            ExitActionState();
+            OnRollEnd?.Invoke();
+        }
+
         public void AnimEvent_CanMove() => OnCanMove?.Invoke();
+        public void AnimEvent_CanNotMove() => OnCanNotMove?.Invoke();
         public void AnimEvent_EnableWeapon() => OnEnableWeapon?.Invoke();
         public void AnimEvent_DisableWeapon() => OnDisableWeapon?.Invoke();
         public void AnimEvent_EnableIFrame() => OnEnableIFrame?.Invoke();
