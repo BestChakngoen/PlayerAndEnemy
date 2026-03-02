@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 using System;
-using GameManger;
+using GameSystem;
 
 namespace PlayerInputs
 {

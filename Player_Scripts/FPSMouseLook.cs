@@ -1,10 +1,14 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using GameSystem;
 
 namespace PlayerInputs
 {
     public class FPSMouseLook : MonoBehaviour
     {
+        [Header("Event Listening")]
+        public GameStateEventSO GameStateChangedChannel;
+
         [SerializeField] private Transform cameraRoot;
         [SerializeField] private Transform playerBody;
         [SerializeField] private float sensitivityX = 0.5f;
@@ -23,9 +27,33 @@ namespace PlayerInputs
         private float yaw;
         private bool isRotationLocked = false;
 
+        public Transform CameraRoot => cameraRoot;
+        public Transform PlayerBody => playerBody;
+
         private void Start()
         {
             SyncRotation();
+        }
+
+        private void OnEnable()
+        {
+            if (GameStateChangedChannel != null)
+            {
+                GameStateChangedChannel.OnEventRaised.AddListener(HandleGameStateChanged);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (GameStateChangedChannel != null)
+            {
+                GameStateChangedChannel.OnEventRaised.RemoveListener(HandleGameStateChanged);
+            }
+        }
+
+        private void HandleGameStateChanged(GameState newState)
+        {
+            isRotationLocked = (newState != GameState.Gameplay);
         }
 
         public void SetCameraMode(CameraMode mode)
@@ -37,7 +65,7 @@ namespace PlayerInputs
             }
         }
 
-        private void SyncRotation()
+        public void SyncRotation()
         {
             if (playerBody != null)
             {

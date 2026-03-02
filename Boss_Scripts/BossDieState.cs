@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 using BasicEnemy;
-using GameManger;
+using GameSystem;
 
 namespace Boss.scripts
 {
@@ -31,16 +31,6 @@ namespace Boss.scripts
             actionTimer += Time.deltaTime;
             if (actionTimer >= currentAnimLength)
             {
-                if (WaveManager.Instance != null)
-                {
-                    WaveManager.Instance.MonsterDied();
-                }
-
-                if (UIManager.Instance != null)
-                {
-                    UIManager.Instance.AddKill();
-                }
-
                 Object.Destroy(fsm.gameObject);
             }
         }

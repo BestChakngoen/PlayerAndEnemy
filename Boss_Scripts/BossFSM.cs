@@ -24,19 +24,19 @@ namespace Boss.scripts
         private Dictionary<BossSkillSO, float> skillCooldownTimers = new Dictionary<BossSkillSO, float>();
 
         private bool isDead = false;
-        private bool isStopped = false;
+        //private bool isStopped = false;
 
         protected virtual void Awake()
         {
             if (BossTransform == null) BossTransform = transform;
             if (bossAnimator == null) bossAnimator = GetComponent<BossAnimator>();
-
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null) playerTransform = player.transform;
+            
         }
 
         protected virtual void Start()
         {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null) playerTransform = player.transform;
             foreach (var skill in bossSkills)
             {
                 if (skill != null && !skillCooldownTimers.ContainsKey(skill))
@@ -50,6 +50,8 @@ namespace Boss.scripts
 
         protected override void Update()
         {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null) playerTransform = player.transform;
             if (isDead) return;
 
             if (meleeAttackTimer > 0) meleeAttackTimer -= Time.deltaTime;
@@ -118,12 +120,12 @@ namespace Boss.scripts
 
         public void StopMovement()
         {
-            isStopped = true;
+            //isStopped = true;
         }
 
         public void ResumeMovement()
         {
-            isStopped = false;
+            //isStopped = false;
         }
 
         public void LookAtPlayerImmediate()

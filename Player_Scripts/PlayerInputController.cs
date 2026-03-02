@@ -1,9 +1,14 @@
 using UnityEngine;
+using GameSystem;
+using UnityEngine.SceneManagement;
 
 namespace PlayerInputs
 {
     public class PlayerInputController : MonoBehaviour
     {
+        [Header("Event Listening")]
+        public GameStateEventSO GameStateChangedChannel;
+
         private PlayerControls controls;
         private PlayerMovementController movement;
         private PlayerCombatController combat;
@@ -23,58 +28,112 @@ namespace PlayerInputs
             interact = GetComponentInChildren<PlayerInteractController>();
             cameraViewSwitcher = GetComponentInChildren<CameraViewSwitcher>();
             mouseLook = GetComponentInChildren<FPSMouseLook>();
+
+            SetupInputEvents();
         }
 
-        void OnEnable()
+        private void SetupInputEvents()
         {
-            // ===== Move (ใช้ได้ทุกโหมด) =====
+            // ===== Move =====
             controls.Player.Move.performed += ctx =>
             {
-                movement.SetMoveInput(ctx.ReadValue<Vector2>());
+                if (movement != null) movement.SetMoveInput(ctx.ReadValue<Vector2>());
             };
             controls.Player.Move.canceled += _ =>
             {
-                movement.SetMoveInput(Vector2.zero);
+                if (movement != null) movement.SetMoveInput(Vector2.zero);
             };
 
-            // ===== Look (ใช้ได้ทุกโหมด) =====
-            controls.Player.Look.performed += ctx => mouseLook.OnLook(ctx);
-            controls.Player.Look.canceled  += ctx => mouseLook.OnLook(ctx);
+            // ===== Look =====
+            controls.Player.Look.performed += ctx => { if (mouseLook != null) mouseLook.OnLook(ctx); };
+            controls.Player.Look.canceled  += ctx => { if (mouseLook != null) mouseLook.OnLook(ctx); };
 
-            // ===== Interact (ใช้ได้ทุกโหมด) =====
-            controls.Player.Interact.performed += _ => interact.TryInteract();
-            controls.Player.Interact.canceled  += _ => interact.StopInteract();
+            // ===== Interact =====
+            controls.Player.Interact.performed += _ => { if (interact != null) interact.TryInteract(); };
+            controls.Player.Interact.canceled  += _ => { if (interact != null) interact.StopInteract(); };
 
-            // ===== Parry (ใช้ได้ทุกโหมด) =====
+            // ===== Parry =====
             controls.Player.Parry.performed += _ =>
             {
-                JumpScareParryManager.Instance?.OnParryInput();
+                if (JumpScareParryManager.Instance != null) JumpScareParryManager.Instance.OnParryInput();
             };
 
             // ===== Third Person ONLY =====
             controls.Player.Attack.performed += _ =>
             {
-                if (cameraViewSwitcher.IsFirstPerson) return;
-                combat.Attack();
+                if (cameraViewSwitcher != null && cameraViewSwitcher.IsFirstPerson) return;
+                if (combat != null) combat.Attack();
             };
 
             controls.Player.Roll.performed += _ =>
             {
-                if (cameraViewSwitcher.IsFirstPerson) return;
-                stamina.TryRoll();
+                if (cameraViewSwitcher != null && cameraViewSwitcher.IsFirstPerson) return;
+                if (stamina != null) stamina.TryRoll();
             };
 
             // ===== Switch View =====
             controls.Player.SwitchView.performed += _ =>
             {
-                cameraViewSwitcher.SwitchView();
+                if (cameraViewSwitcher != null) cameraViewSwitcher.SwitchView();
             };
-
-            controls.Enable();
         }
 
+        void OnEnable()
+        {
+            if (GameStateChangedChannel != null)
+            {
+                GameStateChangedChannel.OnEventRaised.AddListener(HandleGameStateChanged);
+            }
 
-        void OnDisable() => controls.Disable();
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            bool isGameplay = true;
+            if (GameStateManager.Instance != null)
+            {
+                isGameplay = GameStateManager.Instance.CurrentState == GameState.Gameplay;
+            }
+
+            if (isGameplay)
+            {
+                controls.Enable();
+            }
+        }
+
+        void OnDisable()
+        {
+            if (GameStateChangedChannel != null)
+            {
+                GameStateChangedChannel.OnEventRaised.RemoveListener(HandleGameStateChanged);
+            }
+            
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            controls.Disable();
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // เคลียร์สถานะการล็อคทั้งหมดทิ้งเมื่อโหลดด่านใหม่ เพื่อป้องกันบั๊กเวลาผู้เล่นตายระหว่างคัตซีน
+            if (movement != null) movement.enabled = true;
+            if (mouseLook != null) mouseLook.LockRotation(false);
+            if (combat != null) combat.enabled = true;
+            if (stamina != null) stamina.enabled = true;
+        }
+
+        private void HandleGameStateChanged(GameState newState)
+        {
+            if (newState == GameState.Gameplay)
+            {
+                controls.Enable();
+            }
+            else
+            {
+                controls.Disable();
+                
+                if (movement != null)
+                {
+                    movement.SetMoveInput(Vector2.zero);
+                }
+            }
+        }
     }
-
 }
