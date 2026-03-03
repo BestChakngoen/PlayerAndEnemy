@@ -13,6 +13,11 @@ namespace Boss.scripts
         private bool hasSwiped = false;
         private float warningDelay;
 
+        // ตัวแปรเสริมสำหรับการจัดการเฟสหายตัว
+        private int step = 0;
+        private float fadeTimer = 0f;
+        private float fadeDuration = 0.3f; // ความเร็วในการละลายตัว
+
         public BossTeleportSwipeState(BossFSM fsm, float minAwayDistance, float maxAwayDistance) : base(fsm)
         {
             this.fsm = fsm;
@@ -27,7 +32,100 @@ namespace Boss.scripts
             actionTimer = 0f;
             hasSwiped = false;
             warningDelay = Random.Range(0.1f, 0.5f);
-            
+
+            step = 0;
+            fadeTimer = 0f;
+            fsm.PlaySound(fsm.teleportSounds);
+        }
+
+        public override void Update()
+        {
+            if (step == 0) // 1. หายตัวก่อนวาร์ปไปหลังผู้เล่น
+            {
+                fadeTimer += Time.deltaTime;
+                fsm.SetDissolveAmount(Mathf.Clamp01(fadeTimer / fadeDuration));
+                
+                if (fadeTimer >= fadeDuration)
+                {
+                    fsm.SetDissolveAmount(1f);
+                    TeleportBehindPlayer(); // โค้ดเดิมของคุณที่ย้ายบอสไปหลังผู้เล่น
+                    step = 1;
+                    fadeTimer = 0f;
+                }
+            }
+            else if (step == 1) // 2. โผล่มาด้านหลังผู้เล่น
+            {
+                fadeTimer += Time.deltaTime;
+                fsm.SetDissolveAmount(1f - Mathf.Clamp01(fadeTimer / fadeDuration));
+                
+                if (fadeTimer >= fadeDuration)
+                {
+                    fsm.SetDissolveAmount(0f);
+                    step = 2; // ไปรอเข้าเงื่อนไขตบ
+                }
+            }
+            else if (step == 2) // 3. โค้ดเดิมของคุณ (รอดีเลย์และโจมตี)
+            {
+                actionTimer += Time.deltaTime;
+
+                if (!hasSwiped && actionTimer >= warningDelay)
+                {
+                    hasSwiped = true;
+                    actionTimer = 0f; 
+                    fsm.PlaySound(fsm.teleportSwipeSounds);
+                    fsm.bossAnimator.TriggerSwiping();
+                }
+
+                if (hasSwiped)
+                {
+                    Animator animator = fsm.bossAnimator.GetComponent<Animator>();
+                    float currentAnimLength = 2.0f; // สำรองกรณีไม่มีอนิเมเตอร์
+                    
+                    if (animator != null)
+                    {
+                        AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+                        currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
+                    }
+
+                    if (actionTimer >= currentAnimLength + 0.1f)
+                    {
+                        // โจมตีเสร็จแล้ว เข้าสู่เฟสหายตัวหนี
+                        step = 3;
+                        fadeTimer = 0f;
+                        fsm.PlaySound(fsm.teleportSounds);
+                    }
+                }
+            }
+            else if (step == 3) // 4. หายตัวหลังจากโจมตีเสร็จ
+            {
+                fadeTimer += Time.deltaTime;
+                fsm.SetDissolveAmount(Mathf.Clamp01(fadeTimer / fadeDuration));
+                
+                if (fadeTimer >= fadeDuration)
+                {
+                    fsm.SetDissolveAmount(1f);
+                    TeleportAway(); // โค้ดเดิมของคุณที่สุ่มวาร์ปหนี
+                    step = 4;
+                    fadeTimer = 0f;
+                }
+            }
+            else if (step == 4) // 5. ปรากฏตัวในจุดใหม่
+            {
+                fadeTimer += Time.deltaTime;
+                fsm.SetDissolveAmount(1f - Mathf.Clamp01(fadeTimer / fadeDuration));
+                
+                if (fadeTimer >= fadeDuration)
+                {
+                    fsm.SetDissolveAmount(0f);
+                    // ปรากฏตัวเสร็จสมบูรณ์ จบ State (ตามระบบเดิมของคุณเป๊ะๆ)
+                    fsm.NextState = new BossIdleState(fsm);
+                    StateStage = StateEvent.EXIT;
+                }
+            }
+        }
+
+        private void TeleportBehindPlayer()
+        {
             if (fsm.playerTransform != null)
             {
                 Vector3 playerPos = fsm.playerTransform.position;
@@ -43,46 +141,6 @@ namespace Boss.scripts
                 if (lookDirection != Vector3.zero)
                 {
                     fsm.BossTransform.rotation = Quaternion.LookRotation(lookDirection);
-                }
-            }
-        }
-
-        public override void Update()
-        {
-            actionTimer += Time.deltaTime;
-
-            if (!hasSwiped && actionTimer >= warningDelay)
-            {
-                hasSwiped = true;
-                actionTimer = 0f; 
-                fsm.bossAnimator.TriggerSwiping();
-                return;
-            }
-
-            if (hasSwiped)
-            {
-                Animator animator = fsm.bossAnimator.GetComponent<Animator>();
-                
-                if (animator != null)
-                {
-                    AnimatorStateInfo stateInfo = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
-                    float currentAnimLength = stateInfo.length > 0 ? stateInfo.length : 1f;
-
-                    if (actionTimer >= currentAnimLength + 0.1f)
-                    {
-                        TeleportAway();
-                        fsm.NextState = new BossIdleState(fsm);
-                        StateStage = StateEvent.EXIT;
-                    }
-                }
-                else
-                {
-                    if (actionTimer >= 2.0f)
-                    {
-                        TeleportAway();
-                        fsm.NextState = new BossIdleState(fsm);
-                        StateStage = StateEvent.EXIT;
-                    }
                 }
             }
         }

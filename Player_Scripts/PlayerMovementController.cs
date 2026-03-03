@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using PlayerInputs.Core;
 using Boss.core;
+using GameManger;
 
 namespace PlayerInputs
 {
@@ -17,9 +18,12 @@ namespace PlayerInputs
         public float rotationSpeed = 10f;
 
         [Header("Roll Settings")]
-        public float rollSpeed = 8f; // กำหนดความเร็วในการกลิ้งได้ที่ Inspector
+        public float rollSpeed = 8f; 
         private bool isRolling = false;
         private Vector3 rollDirection;
+
+        [Header("Audio")]
+        [SerializeField] private AudioClip[] footstepSounds;
 
         private Vector2 moveInput;
         private IPlayerCombat combatState;
@@ -68,7 +72,6 @@ namespace PlayerInputs
             isRolling = true;
             Vector3 moveDir = CalculateMoveDirection();
             
-            // ตรวจสอบว่าผู้เล่นกดทิศทางอยู่หรือไม่ ถ้ากดให้กลิ้งไปทางนั้น ถ้าไม่ได้กดให้กลิ้งไปด้านหน้าตัวละคร
             if (moveDir.sqrMagnitude > 0.01f)
             {
                 rollDirection = moveDir.normalized;
@@ -88,7 +91,6 @@ namespace PlayerInputs
         {
             if (playerRoot == null) return;
 
-            // หากอยู่สถานะกลิ้ง ให้บังคับขยับตัวและหันหน้าตามทิศทางกลิ้งอย่างเดียว
             if (isRolling)
             {
                 controller.Move(rollDirection * rollSpeed * Time.deltaTime);
@@ -145,6 +147,15 @@ namespace PlayerInputs
             if (multiplier != 0)
             {
                 speedMultiplier /= multiplier;
+            }
+        }
+
+        public void PlayFootstepSound()
+        {
+            if (footstepSounds != null && footstepSounds.Length > 0 && AudioManager.Instance != null)
+            {
+                AudioClip clip = footstepSounds[Random.Range(0, footstepSounds.Length)];
+                AudioManager.Instance.PlaySFX(clip, transform.position);
             }
         }
     }

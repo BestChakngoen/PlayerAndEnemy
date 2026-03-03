@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using PlayerInputs.Core;
+using CoreSystem;
+using GameManger;
 
 namespace PlayerInputs
 {
@@ -10,6 +12,11 @@ namespace PlayerInputs
         [SerializeField] private float comboResetTime = 0.8f;
         [SerializeField] private PlayerAnimationFacade anim;
         
+        [Header("Damage Settings")]
+        [SerializeField] private float baseDamage = 15f;
+        [SerializeField] private float[] comboDamageMultipliers = { 1.0f, 1.2f, 1.5f, 2.0f };
+        [SerializeField] private ConeOverlapAttacker coneAttacker;
+
         [Header("Auto Aim Settings")]
         [SerializeField] private bool enableAutoAim = true;
         [SerializeField] private float autoAimRadius = 6f;
@@ -17,6 +24,9 @@ namespace PlayerInputs
         [SerializeField] private float autoAimMaxAngle = 360f;
         [SerializeField] private LayerMask enemyLayer;
         [SerializeField] private Transform playerRoot;
+
+        [Header("Audio")]
+        [SerializeField] private AudioClip[] attackSounds;
 
         private int currentCombo;
         private bool isAttacking;
@@ -29,12 +39,14 @@ namespace PlayerInputs
         private void Awake()
         {
             if (playerRoot == null) playerRoot = transform.root;
+            if (coneAttacker == null) coneAttacker = GetComponent<ConeOverlapAttacker>();
 
             anim.OnAttackEnd += ResetAttackState;
             anim.OnCanMove += EnableMovement;
             anim.OnCanNotMove += DisableMovement;
             anim.OnRollStart += HandleRollStart;
             anim.OnRollEnd += HandleRollEnd;
+            anim.OnDealDamage += HandleDealDamage;
         }
 
         private void Update()
@@ -60,7 +72,29 @@ namespace PlayerInputs
             canMove = false;
             isAttacking = true;
             currentCombo = (currentCombo % maxCombo) + 1;
+            
+            if (attackSounds != null && attackSounds.Length > 0 && AudioManager.Instance != null)
+            {
+                AudioClip clip = attackSounds[Random.Range(0, attackSounds.Length)];
+                AudioManager.Instance.PlaySFX(clip, transform.position);
+            }
+
             anim.PlayAttack(currentCombo);
+        }
+
+        private void HandleDealDamage()
+        {
+            if (coneAttacker != null)
+            {
+                float multiplier = 1.0f;
+                int comboIndex = currentCombo - 1;
+                if (comboIndex >= 0 && comboIndex < comboDamageMultipliers.Length)
+                {
+                    multiplier = comboDamageMultipliers[comboIndex];
+                }
+
+                coneAttacker.Attack(baseDamage * multiplier);
+            }
         }
 
         private void PerformAutoAim()
@@ -146,6 +180,7 @@ namespace PlayerInputs
                 anim.OnCanNotMove -= DisableMovement;
                 anim.OnRollStart -= HandleRollStart;
                 anim.OnRollEnd -= HandleRollEnd;
+                anim.OnDealDamage -= HandleDealDamage;
             }
         }
     }

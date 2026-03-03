@@ -34,7 +34,6 @@ namespace PlayerInputs
 
         private void SetupInputEvents()
         {
-            // ===== Move =====
             controls.Player.Move.performed += ctx =>
             {
                 if (movement != null) movement.SetMoveInput(ctx.ReadValue<Vector2>());
@@ -44,34 +43,39 @@ namespace PlayerInputs
                 if (movement != null) movement.SetMoveInput(Vector2.zero);
             };
 
-            // ===== Look =====
             controls.Player.Look.performed += ctx => { if (mouseLook != null) mouseLook.OnLook(ctx); };
             controls.Player.Look.canceled  += ctx => { if (mouseLook != null) mouseLook.OnLook(ctx); };
 
-            // ===== Interact =====
-            controls.Player.Interact.performed += _ => { if (interact != null) interact.TryInteract(); };
-            controls.Player.Interact.canceled  += _ => { if (interact != null) interact.StopInteract(); };
+            controls.Player.Interact.performed += _ => 
+            { 
+                if (!PlayerStateController.CanControl) return;
+                if (interact != null) interact.TryInteract(); 
+            };
+            controls.Player.Interact.canceled  += _ => 
+            { 
+                if (!PlayerStateController.CanControl) return;
+                if (interact != null) interact.StopInteract(); 
+            };
 
-            // ===== Parry =====
             controls.Player.Parry.performed += _ =>
             {
                 if (JumpScareParryManager.Instance != null) JumpScareParryManager.Instance.OnParryInput();
             };
 
-            // ===== Third Person ONLY =====
             controls.Player.Attack.performed += _ =>
             {
+                if (!PlayerStateController.CanControl) return;
                 if (cameraViewSwitcher != null && cameraViewSwitcher.IsFirstPerson) return;
                 if (combat != null) combat.Attack();
             };
 
             controls.Player.Roll.performed += _ =>
             {
+                if (!PlayerStateController.CanControl) return;
                 if (cameraViewSwitcher != null && cameraViewSwitcher.IsFirstPerson) return;
                 if (stamina != null) stamina.TryRoll();
             };
 
-            // ===== Switch View =====
             controls.Player.SwitchView.performed += _ =>
             {
                 if (cameraViewSwitcher != null) cameraViewSwitcher.SwitchView();
@@ -112,7 +116,6 @@ namespace PlayerInputs
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // เคลียร์สถานะการล็อคทั้งหมดทิ้งเมื่อโหลดด่านใหม่ เพื่อป้องกันบั๊กเวลาผู้เล่นตายระหว่างคัตซีน
             if (movement != null) movement.enabled = true;
             if (mouseLook != null) mouseLook.LockRotation(false);
             if (combat != null) combat.enabled = true;

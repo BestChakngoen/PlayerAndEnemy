@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using GameManger;
 
 namespace PlayerInputs
 {
@@ -13,6 +14,9 @@ namespace PlayerInputs
         [SerializeField] private Slider staminaSlider;
         [SerializeField] private PlayerAnimationFacade animationFacade;
 
+        [Header("Audio")]
+        [SerializeField] private AudioClip[] rollSounds;
+
         private float stamina;
         private float cooldown;
         private PlayerMovementController movementController;
@@ -24,7 +28,7 @@ namespace PlayerInputs
                 enabled = false; 
                 return;
             }
-            // ดึงค่า Controller ไว้สำหรับสั่งการกลิ้ง
+            
             movementController = GetComponent<PlayerMovementController>();
         }
 
@@ -49,6 +53,8 @@ namespace PlayerInputs
 
         public bool TryRoll()
         {
+            if (!PlayerStateController.CanControl) return false;
+
             if (stamina < rollCost || cooldown > 0f) return false;
 
             stamina -= rollCost;
@@ -56,7 +62,12 @@ namespace PlayerInputs
 
             UpdateStaminaUI();
 
-            // สั่งเล่น Animation และเริ่มการคำนวณ Movement ใหม่ทันที
+            if (rollSounds != null && rollSounds.Length > 0 && AudioManager.Instance != null)
+            {
+                AudioClip clip = rollSounds[Random.Range(0, rollSounds.Length)];
+                AudioManager.Instance.PlaySFX(clip, transform.position);
+            }
+
             if (animationFacade != null) animationFacade.PlayRoll();
             if (movementController != null) movementController.StartRoll();
 

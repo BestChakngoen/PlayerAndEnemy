@@ -14,7 +14,10 @@ namespace PlayerInputs
 
         private Animator animator;
         private AnimationType currentAnimationType = AnimationType.Locomotion;
-        
+
+        private bool isDead = false;
+        public bool IsStunned { get; private set; }
+
         public event Action OnCanMove;
         public event Action OnCanNotMove;
         public event Action OnAttackEnd;
@@ -24,6 +27,9 @@ namespace PlayerInputs
         public event Action OnDisableWeapon;
         public event Action OnEnableIFrame;
         public event Action OnDisableIFrame;
+        public event Action OnDealDamage;
+        public event Action OnHitEnd;
+        public event Action<bool> OnStunStateChanged;
 
         private static readonly int SpeedHash        = Animator.StringToHash("Speed");
         private static readonly int IsComboHash      = Animator.StringToHash("IsCombo");
@@ -33,6 +39,7 @@ namespace PlayerInputs
         private static readonly int RollTrigger      = Animator.StringToHash("Roll");
         private static readonly int CastTrigger      = Animator.StringToHash("Cast");
         private static readonly int DieTrigger       = Animator.StringToHash("Die");
+        private static readonly int HitTrigger       = Animator.StringToHash("Hit");
 
         void Awake()
         {
@@ -43,33 +50,45 @@ namespace PlayerInputs
 
         public void SetMovementSpeed(float speed)
         {
-            if (currentAnimationType == AnimationType.Action) return;
+            if (currentAnimationType == AnimationType.Action || isDead) return;
             animator.applyRootMotion = false;
             animator.SetFloat(SpeedHash, speed);
         }
 
         public void SetComboState(bool isCombo)
         {
+            if (isDead) return;
             animator.SetBool(IsComboHash, isCombo);
         }
 
         public void SetAttackCombo(int combo)
         {
+            if (isDead) return;
             animator.SetInteger(AttackComboHash, combo);
         }
 
         public void SetStunState(bool isStunned)
         {
+            if (isDead) return;
+
+            IsStunned = isStunned;
             animator.SetBool(IsStunnedHash, isStunned);
             
             if (isStunned)
             {
                 currentAnimationType = AnimationType.Action;
+                animator.SetFloat(SpeedHash, 0f);
+
+                animator.ResetTrigger(AttackTrigger);
+                animator.ResetTrigger(RollTrigger);
+                animator.ResetTrigger(CastTrigger);
             }
             else
             {
                 currentAnimationType = AnimationType.Locomotion;
             }
+
+            OnStunStateChanged?.Invoke(isStunned);
         }
 
         private void EnterActionState()
@@ -86,6 +105,7 @@ namespace PlayerInputs
 
         public void PlayAttack(int comboCounter)
         {
+            if (isDead) return;
             EnterActionState();
             animator.SetInteger(AttackComboHash, comboCounter);
             animator.SetTrigger(AttackTrigger);
@@ -93,6 +113,7 @@ namespace PlayerInputs
 
         public void PlayRoll()
         {
+            if (isDead) return;
             animator.ResetTrigger(AttackTrigger);
             EnterActionState();
             animator.applyRootMotion = false;
@@ -102,14 +123,35 @@ namespace PlayerInputs
 
         public void PlayCastSkill()
         {
+            if (isDead) return;
             EnterActionState();
             animator.SetTrigger(CastTrigger);
         }
 
         public void PlayDie()
         {
+            isDead = true;
             EnterActionState();
             animator.SetTrigger(DieTrigger);
+        }
+
+        public void PlayHit()
+        {
+            if (isDead) return;
+            
+            animator.ResetTrigger(AttackTrigger);
+            animator.ResetTrigger(RollTrigger);
+            animator.ResetTrigger(CastTrigger);
+            
+            EnterActionState();
+            animator.SetFloat(SpeedHash, 0f);
+            animator.SetTrigger(HitTrigger);
+        }
+
+        public void ResetDeathState()
+        {
+            isDead = false;
+            IsStunned = false;
         }
 
         public void EnableAnimator(bool enable)
@@ -144,6 +186,8 @@ namespace PlayerInputs
         public void AnimEvent_EnableWeapon() => OnEnableWeapon?.Invoke();
         public void AnimEvent_DisableWeapon() => OnDisableWeapon?.Invoke();
         public void AnimEvent_EnableIFrame() => OnEnableIFrame?.Invoke();
+        
+        public void AnimEvent_DealDamage() => OnDealDamage?.Invoke();
 
         public void AnimEvent_DisableIFrame()
         {
@@ -157,6 +201,12 @@ namespace PlayerInputs
             {
                 GameStateManager.Instance.SetState(GameState.GameOver);
             }
+        }
+
+        public void AnimEvent_HitEnd()
+        {
+            ExitActionState();
+            OnHitEnd?.Invoke();
         }
 
         public Animator GetAnimator() => animator;

@@ -3,6 +3,8 @@ using BasicEnemy;
 using UnityEngine;
 using Boss.core;
 using CCSystem;
+using CoreSystem;
+using GameManger;
 
 namespace Boss.scripts
 {
@@ -17,20 +19,33 @@ namespace Boss.scripts
         [HideInInspector] public float meleeAttackTimer = 0f;
         public float baseSpeedMultiplier = 1.0f; 
         
+        [Header("Damage Settings")]
+        public float baseMeleeDamage = 20f;
+        [SerializeField] private ConeOverlapAttacker coneAttacker;
+
         [Header("CC Effects")]
         public List<CCEffectSO> ccEffects = new List<CCEffectSO>();
         
+        [Header("Boss Audio")]
+        public AudioClip[] screamSounds;
+        public AudioClip[] teleportSounds;
+        public AudioClip[] teleportSwipeSounds;
+
+        [Header("Visual Effects")]
+        public Renderer[] bossRenderers; 
+        [Tooltip("ชื่อตัวแปร Reference ใน Shader Graph (มักจะมี _ นำหน้า)")]
+        public string dissolvePropertyName = "_DissolveAmount"; 
+
         public List<BossSkillSO> bossSkills = new List<BossSkillSO>();
         private Dictionary<BossSkillSO, float> skillCooldownTimers = new Dictionary<BossSkillSO, float>();
 
         private bool isDead = false;
-        //private bool isStopped = false;
 
         protected virtual void Awake()
         {
             if (BossTransform == null) BossTransform = transform;
             if (bossAnimator == null) bossAnimator = GetComponent<BossAnimator>();
-            
+            if (coneAttacker == null) coneAttacker = GetComponent<ConeOverlapAttacker>();
         }
 
         protected virtual void Start()
@@ -45,14 +60,29 @@ namespace Boss.scripts
                 }
             }
 
+            if (bossAnimator != null)
+            {
+                bossAnimator.OnDealDamage += HandleMeleeDamageEvent;
+            }
+
+            if (coneAttacker != null)
+            {
+                coneAttacker.OnTargetHit += HandleTargetHitCC;
+            }
+
             CurrentState = new BossIdleState(this);
         }
 
         protected override void Update()
         {
+            if (isDead)
+            {
+                base.Update();
+                return;
+            }
+
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null) playerTransform = player.transform;
-            if (isDead) return;
 
             if (meleeAttackTimer > 0) meleeAttackTimer -= Time.deltaTime;
 
@@ -73,6 +103,57 @@ namespace Boss.scripts
             }
 
             base.Update();
+        }
+
+        // ฟังก์ชันสั่งการหายตัวของบอส (0 = ปรากฏ, 1 = หายตัว)
+        public void SetDissolveAmount(float amount)
+        {
+            if (bossRenderers == null || bossRenderers.Length == 0) return;
+
+            foreach (var r in bossRenderers)
+            {
+                if (r != null && r.material != null)
+                {
+                    // ส่งค่าไปที่ตัวแปรใน Shader
+                    r.material.SetFloat(dissolvePropertyName, amount);
+                }
+            }
+        }
+
+        public void PlaySound(AudioClip[] clips)
+        {
+            if (clips != null && clips.Length > 0 && AudioManager.Instance != null)
+            {
+                AudioClip clip = clips[UnityEngine.Random.Range(0, clips.Length)];
+                AudioManager.Instance.PlaySFX(clip, BossTransform.position);
+            }
+        }
+
+        private void HandleMeleeDamageEvent()
+        {
+            if (coneAttacker != null && !isDead)
+            {
+                coneAttacker.Attack(baseMeleeDamage);
+            }
+        }
+
+        private void HandleTargetHitCC(GameObject target)
+        {
+            if (ccEffects != null && ccEffects.Count > 0)
+            {
+                foreach (var effect in ccEffects)
+                {
+                    if (effect is KnockbackEffectSO knockbackEffect)
+                    {
+                        ICrowdControlReceiver receiver = target.GetComponentInChildren<ICrowdControlReceiver>();
+                        if (receiver != null)
+                        {
+                            receiver.AddCC(knockbackEffect, BossTransform.position);
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         private void UpdateSkillCooldowns()
@@ -120,12 +201,10 @@ namespace Boss.scripts
 
         public void StopMovement()
         {
-            //isStopped = true;
         }
 
         public void ResumeMovement()
         {
-            //isStopped = false;
         }
 
         public void LookAtPlayerImmediate()
@@ -164,6 +243,18 @@ namespace Boss.scripts
             if (CurrentState != null)
             {
                 CurrentState.StateStage = StateEvent.EXIT;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (bossAnimator != null)
+            {
+                bossAnimator.OnDealDamage -= HandleMeleeDamageEvent;
+            }
+            if (coneAttacker != null)
+            {
+                coneAttacker.OnTargetHit -= HandleTargetHitCC;
             }
         }
     }

@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using System;
+using GameManger;
 
 namespace Boss.scripts
 {
@@ -6,6 +8,11 @@ namespace Boss.scripts
     {
         private Animator animator;
         public BossFSM aiController;
+
+        [Header("Audio")]
+        [SerializeField] private AudioClip[] meleeAttackSounds;
+        
+        public event Action OnDealDamage;
 
         void Awake()
         {
@@ -26,6 +33,15 @@ namespace Boss.scripts
             else animator.SetTrigger("GetAwayRight");
         }
         
-        
+        public void AnimEvent_DealDamage()
+        {
+            if (meleeAttackSounds != null && meleeAttackSounds.Length > 0 && AudioManager.Instance != null)
+            {
+                AudioClip clip = meleeAttackSounds[UnityEngine.Random.Range(0, meleeAttackSounds.Length)];
+                AudioManager.Instance.PlaySFX(clip, transform.position);
+            }
+
+            OnDealDamage?.Invoke();
+        }
     }
 }

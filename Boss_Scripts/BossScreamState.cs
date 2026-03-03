@@ -25,6 +25,8 @@ namespace Boss.scripts
             actionTimer = 0f;
             hasDebuffed = false;
             
+            fsm.PlaySound(fsm.screamSounds);
+
             Animator anim = fsm.bossAnimator.GetComponent<Animator>();
             if (anim != null)
             {
