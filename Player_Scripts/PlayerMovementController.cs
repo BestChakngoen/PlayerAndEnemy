@@ -5,7 +5,7 @@ using GameManger;
 
 namespace PlayerInputs
 {
-    public class PlayerMovementController : MonoBehaviour, IPlayerMovement, ISpeedModifiable
+    public class PlayerMovementController : MonoBehaviour, IPlayerMovement, ISpeedModifiable, IActionLockable
     {
         public enum MovementMode { FirstPerson, ThirdPerson }
 
@@ -28,17 +28,21 @@ namespace PlayerInputs
         private Vector2 moveInput;
         private IPlayerCombat combatState;
         private Transform playerRoot;
+        private PlayerStateController stateController;
         
         private float speedMultiplier = 1.0f;
+        private bool isActionLocked = false;
 
         private void Awake()
         {
             combatState = GetComponentInChildren<IPlayerCombat>();
+            stateController = GetComponentInParent<PlayerStateController>();
             if (controller != null) playerRoot = controller.transform;
             if (cameraTransform == null && Camera.main != null) cameraTransform = Camera.main.transform;
 
             if (animationFacade != null)
             {
+                animationFacade.OnRollStart += StartRoll;
                 animationFacade.OnRollEnd += EndRoll;
             }
         }
@@ -47,15 +51,27 @@ namespace PlayerInputs
         {
             if (animationFacade != null)
             {
+                animationFacade.OnRollStart -= StartRoll;
                 animationFacade.OnRollEnd -= EndRoll;
             }
         }
 
         private void Update()
         {
-            if (!PlayerStateController.CanControl) return;
+            if (stateController != null && !stateController.CanControl) return;
 
             HandleMovementAndRotation();
+        }
+
+        public void LockAction()
+        {
+            isActionLocked = true;
+            isRolling = false;
+        }
+
+        public void UnlockAction()
+        {
+            isActionLocked = false;
         }
 
         public void SetMoveInput(Vector2 input)
@@ -67,7 +83,7 @@ namespace PlayerInputs
 
         public void StartRoll()
         {
-            if (isRolling) return;
+            if (isRolling || isActionLocked) return;
             
             isRolling = true;
             Vector3 moveDir = CalculateMoveDirection();
@@ -90,6 +106,12 @@ namespace PlayerInputs
         private void HandleMovementAndRotation()
         {
             if (playerRoot == null) return;
+
+            if (isActionLocked)
+            {
+                animationFacade.SetMovementSpeed(0f);
+                return;
+            }
 
             if (isRolling)
             {

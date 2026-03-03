@@ -5,7 +5,7 @@ using GameManger;
 
 namespace PlayerInputs
 {
-    public class PlayerCombatController : MonoBehaviour, IPlayerCombat
+    public class PlayerCombatController : MonoBehaviour, IPlayerCombat, IActionLockable
     {
         [Header("Combo Settings")]
         [SerializeField] private int maxCombo = 4;
@@ -33,6 +33,8 @@ namespace PlayerInputs
         private bool isRolling;
         private float comboResetTimer;
         private bool canMove = true;
+        private PlayerStateController stateController;
+        private bool isActionLocked = false;
         
         public bool CanMove => canMove;
 
@@ -40,6 +42,7 @@ namespace PlayerInputs
         {
             if (playerRoot == null) playerRoot = transform.root;
             if (coneAttacker == null) coneAttacker = GetComponent<ConeOverlapAttacker>();
+            stateController = GetComponentInParent<PlayerStateController>();
 
             anim.OnAttackEnd += ResetAttackState;
             anim.OnCanMove += EnableMovement;
@@ -51,7 +54,7 @@ namespace PlayerInputs
 
         private void Update()
         {
-            if (isAttacking) return;
+            if (isAttacking || isActionLocked) return;
 
             if (comboResetTimer > 0)
             {
@@ -60,9 +63,34 @@ namespace PlayerInputs
             }
         }
 
+        public void LockAction()
+        {
+            isActionLocked = true;
+            isAttacking = false;
+            isRolling = false;
+            canMove = true;
+            currentCombo = 0;
+            comboResetTimer = 0f;
+        }
+
+        public void UnlockAction()
+        {
+            isActionLocked = false;
+        }
+
+        public void ResetCombatState()
+        {
+            isAttacking = false;
+            isRolling = false;
+            isActionLocked = false;
+            canMove = true;
+            currentCombo = 0;
+            comboResetTimer = 0f;
+        }
+
         public void Attack()
         {
-            if (isAttacking || isRolling || !PlayerStateController.CanControl) return;
+            if (isActionLocked || isAttacking || isRolling || (stateController != null && !stateController.CanControl)) return;
 
             if (enableAutoAim)
             {
@@ -162,13 +190,6 @@ namespace PlayerInputs
         private void DisableMovement()
         {
             canMove = false;
-        }
-
-        private void OnDrawGizmosSelected()
-        {
-            if (!enableAutoAim || playerRoot == null) return;
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(playerRoot.position, autoAimRadius);
         }
 
         private void OnDestroy()

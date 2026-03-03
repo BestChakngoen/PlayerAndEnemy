@@ -1,249 +1,192 @@
 ﻿using UnityEngine;
-using UnityEngine.SceneManagement;
 using CoreSystem;
+using System;
 using GameSystem;
-using GameManger;
+using Photon.Pun;
 
 namespace PlayerInputs
 {
     [RequireComponent(typeof(Health))]
-    public class PlayerHealthController : MonoBehaviour
+    public class PlayerHealthController : MonoBehaviour, IDeathSequenceNotifier
     {
         private Health health;
-        [SerializeField] private PlayerAnimationFacade animationFacade;
-        
-        [Header("Audio")]
-        [SerializeField] private AudioClip[] hitSounds;
-        [SerializeField] private AudioClip[] dieSounds;
-
-        private float previousHealth;
+        private PlayerAnimationFacade animationFacade;
         private PlayerInputController inputController;
-        private MonoBehaviour movementController;
-        private MonoBehaviour physicsController;
-        private MonoBehaviour combatController;
-        private MonoBehaviour manaSkillController;
-        private MonoBehaviour staminaController;
+        private float previousHealth;
+
+        private PlayerCombatController combatController;
+        private PlayerMovementController movementController;
+        private PlayerManaSkillController manaSkillController;
+        private PlayerStaminaController staminaController;
         private MonoBehaviour unityPlayerInput;
+        private PlayerStateController stateController;
 
         private bool isIncapacitated = false;
+
+        public event Action OnDeathSequenceComplete;
 
         private void Awake()
         {
             health = GetComponent<Health>();
             if (animationFacade == null) animationFacade = GetComponentInChildren<PlayerAnimationFacade>();
             inputController = GetComponent<PlayerInputController>();
+            stateController = GetComponentInParent<PlayerStateController>();
             
             previousHealth = health.GetMaxHealth();
 
-            MonoBehaviour[] allBehaviours = GetComponentsInChildren<MonoBehaviour>(true);
-            foreach (var mb in allBehaviours)
-            {
-                if (mb == null) continue;
-                string typeName = mb.GetType().Name;
-                if (typeName == "PlayerMovementController") movementController = mb;
-                if (typeName == "PlayerPhysicsController") physicsController = mb;
-                if (typeName == "PlayerCombatController") combatController = mb;
-                if (typeName == "PlayerManaSkillController") manaSkillController = mb;
-                if (typeName == "PlayerStaminaController") staminaController = mb;
-                if (typeName == "PlayerInput") unityPlayerInput = mb; 
-            }
+            combatController = GetComponentInChildren<PlayerCombatController>();
+            movementController = GetComponentInChildren<PlayerMovementController>();
+            manaSkillController = GetComponentInChildren<PlayerManaSkillController>();
+            staminaController = GetComponentInChildren<PlayerStaminaController>();
 
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            var playerInputType = System.Type.GetType("UnityEngine.InputSystem.PlayerInput, Unity.InputSystem");
+            if (playerInputType != null)
+            {
+                unityPlayerInput = GetComponent(playerInputType) as MonoBehaviour;
+            }
         }
 
         private void OnEnable()
         {
-            health.OnDeath += HandleDeath;
-            health.OnHealthChanged += HandleHealthChanged;
+            if (health != null)
+            {
+                health.OnHealthChanged += HandleHealthChanged;
+                health.OnDeath += HandleDeath;
+            }
+
             if (animationFacade != null)
             {
-                animationFacade.OnHitEnd += HandleHitEnd;
-                animationFacade.OnStunStateChanged += HandleStunStateChanged;
+                animationFacade.OnDeathAnimationComplete += HandleDeathSequenceComplete;
             }
         }
 
         private void OnDisable()
         {
-            health.OnDeath -= HandleDeath;
-            health.OnHealthChanged -= HandleHealthChanged;
+            if (health != null)
+            {
+                health.OnHealthChanged -= HandleHealthChanged;
+                health.OnDeath -= HandleDeath;
+            }
+
             if (animationFacade != null)
             {
-                animationFacade.OnHitEnd -= HandleHitEnd;
-                animationFacade.OnStunStateChanged -= HandleStunStateChanged;
-            }
-        }
-
-        private void OnDestroy()
-        {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-        }
-
-        private void Update()
-        {
-            if (isIncapacitated)
-            {
-                BroadcastMessage("ResetVelocity", SendMessageOptions.DontRequireReceiver);
-            }
-        }
-
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            if (health != null && health.GetCurrentHealth() <= 0)
-            {
-                health.ResetHealth();
-                previousHealth = health.GetMaxHealth();
-                
-                SetPlayerActiveState(true);
-
-                MonoBehaviour ccHandler = GetComponent<CCSystem.ICrowdControlReceiver>() as MonoBehaviour;
-                if (ccHandler != null)
-                {
-                    ccHandler.enabled = true;
-                }
-
-                if (animationFacade != null)
-                {
-                    animationFacade.ResetDeathState();
-                    Animator animator = animationFacade.GetAnimator();
-                    if (animator != null)
-                    {
-                        if (animator.gameObject.activeInHierarchy)
-                        {
-                            animator.Rebind();
-                            animator.Update(0f);
-                        }
-                    }
-                }
-            }
-        }
-
-        private void SetPlayerActiveState(bool isActive)
-        {
-            PlayerStateController.SetControl(isActive);
-            isIncapacitated = !isActive;
-            
-            if (inputController != null) inputController.enabled = isActive;
-            if (movementController != null) movementController.enabled = isActive;
-            if (physicsController != null) physicsController.enabled = isActive;
-            if (combatController != null) combatController.enabled = isActive;
-            if (manaSkillController != null) manaSkillController.enabled = isActive;
-            if (staminaController != null) staminaController.enabled = isActive;
-            if (unityPlayerInput != null) unityPlayerInput.enabled = isActive;
-
-            if (!isActive)
-            {
-                BroadcastMessage("ResetVelocity", SendMessageOptions.DontRequireReceiver);
-            }
-        }
-
-        private void HandleStunStateChanged(bool isStunned)
-        {
-            if (health != null && health.GetCurrentHealth() <= 0) return;
-
-            SetPlayerActiveState(!isStunned);
-
-            if (isStunned)
-            {
-                if (animationFacade != null)
-                {
-                    animationFacade.SetMovementSpeed(0f);
-                }
+                animationFacade.OnDeathAnimationComplete -= HandleDeathSequenceComplete;
             }
         }
 
         private void HandleHealthChanged(float currentHealth, float maxHealth)
         {
-            if (currentHealth < previousHealth && currentHealth > 0)
+            if (currentHealth < previousHealth && currentHealth > 0 && !isIncapacitated)
             {
-                SetPlayerActiveState(false);
-
                 if (animationFacade != null)
                 {
-                    animationFacade.SetMovementSpeed(0f);
                     animationFacade.PlayHit();
-                }
-
-                if (hitSounds != null && hitSounds.Length > 0 && AudioManager.Instance != null)
-                {
-                    AudioClip clip = hitSounds[Random.Range(0, hitSounds.Length)];
-                    AudioManager.Instance.PlaySFX(clip, transform.position);
                 }
             }
             previousHealth = currentHealth;
         }
 
-        private void HandleHitEnd()
+        private void HandleDeath()
         {
-            if (health != null && health.GetCurrentHealth() > 0)
+            if (isIncapacitated) return;
+            
+            isIncapacitated = true;
+            SetPlayerActiveState(false);
+            
+            if (animationFacade != null)
             {
-                bool isStillStunned = animationFacade != null && animationFacade.IsStunned;
-
-                if (!isStillStunned)
-                {
-                    SetPlayerActiveState(true);
-                }
+                animationFacade.PlayDie();
             }
         }
 
-        private void HandleDeath()
+        private void HandleDeathSequenceComplete()
+        {
+            OnDeathSequenceComplete?.Invoke();
+
+            // หากอยู่ในโหมด Offline หรือไม่มีตัวจัดการออนไลน์ใน Scene ให้แสดง Loss UI ทันที
+            if (!PhotonNetwork.IsConnected || FindObjectOfType<OnlineSystem.NetworkGameStateManager>() == null)
+            {
+                ExecuteLocalLoss();
+            }
+        }
+
+        private void ExecuteLocalLoss()
         {
             UIManager.IsWin = false;
+            if (GameStateManager.Instance != null)
+            {
+                GameStateManager.Instance.SetState(GameState.GameOver);
+            }
+        }
+
+        private void SetPlayerActiveState(bool isActive)
+        {
+            if (stateController != null) stateController.SetControl(isActive);
             
-            SetPlayerActiveState(false);
+            if (inputController != null) inputController.enabled = isActive;
+            
+            if (combatController != null) combatController.enabled = isActive;
+            if (movementController != null) movementController.enabled = isActive;
+            if (manaSkillController != null) manaSkillController.enabled = isActive;
+            if (staminaController != null) staminaController.enabled = isActive;
+            
+            if (unityPlayerInput != null) unityPlayerInput.enabled = isActive;
 
-            MonoBehaviour ccHandler = GetComponent<CCSystem.ICrowdControlReceiver>() as MonoBehaviour;
-            if (ccHandler != null)
+            Collider[] colliders = GetComponentsInChildren<Collider>();
+            foreach (var col in colliders)
             {
-                ccHandler.enabled = false;
+                if (!(col is CharacterController))
+                {
+                    col.enabled = isActive;
+                }
             }
 
-            if (dieSounds != null && dieSounds.Length > 0 && AudioManager.Instance != null)
+            CharacterController cc = GetComponentInChildren<CharacterController>();
+            if (cc != null)
             {
-                AudioClip clip = dieSounds[Random.Range(0, dieSounds.Length)];
-                AudioManager.Instance.PlaySFX(clip, transform.position);
+                cc.enabled = isActive;
             }
+        }
+
+        public void Respawn(Vector3 spawnPosition)
+        {
+            isIncapacitated = false;
+
+            if (health != null)
+            {
+                health.ResetHealth();
+                previousHealth = health.GetMaxHealth();
+            }
+
+            if (staminaController != null) staminaController.ResetStamina();
+            if (manaSkillController != null) manaSkillController.ResetMana();
+            if (combatController != null) combatController.ResetCombatState();
+
+            CharacterController cc = GetComponentInChildren<CharacterController>();
+            if (cc != null)
+            {
+                cc.enabled = false;
+                transform.position = spawnPosition;
+                cc.enabled = true;
+            }
+            else
+            {
+                transform.position = spawnPosition;
+            }
+
+            SetPlayerActiveState(true);
 
             if (animationFacade != null)
             {
-                Animator animator = animationFacade.GetAnimator();
-                if (animator != null)
+                animationFacade.ResetDeathState();
+                Animator anim = animationFacade.GetComponent<Animator>();
+                if (anim != null)
                 {
-                    foreach (AnimatorControllerParameter param in animator.parameters)
-                    {
-                        if (param.type == AnimatorControllerParameterType.Trigger)
-                        {
-                            animator.ResetTrigger(param.name);
-                        }
-                        else if (param.type == AnimatorControllerParameterType.Bool)
-                        {
-                            animator.SetBool(param.name, false);
-                        }
-                    }
-                }
-
-                animationFacade.SetMovementSpeed(0f);
-                animationFacade.PlayDie();
-            }
-
-            // แก้ไขปัญหา Obsolete โดยเปลี่ยนมาใช้ FindObjectsByType แทน
-            Boss.scripts.BossAnimator[] bossAnimators = FindObjectsByType<Boss.scripts.BossAnimator>(FindObjectsSortMode.None);
-            foreach (var bossAnim in bossAnimators)
-            {
-                Animator bAnimator = bossAnim.GetComponent<Animator>();
-                if (bAnimator != null)
-                {
-                    foreach (AnimatorControllerParameter param in bAnimator.parameters)
-                    {
-                        if (param.type == AnimatorControllerParameterType.Trigger)
-                        {
-                            bAnimator.ResetTrigger(param.name);
-                        }
-                        else if (param.type == AnimatorControllerParameterType.Bool)
-                        {
-                            bAnimator.SetBool(param.name, false);
-                        }
-                    }
-                    bAnimator.SetFloat("Speed", 0f);
+                    // Disable animator before rebinding to prevent UnityEditor.Graphs errors
+                    anim.enabled = false;
+                    anim.Rebind();
+                    anim.Update(0f);
+                    anim.enabled = true;
                 }
             }
         }

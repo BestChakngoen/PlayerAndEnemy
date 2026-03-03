@@ -18,11 +18,13 @@ namespace CCSystem
         [SerializeField] private PlayerAnimationFacade animationFacade;
 
         private CharacterController characterController;
+        private PlayerStateController stateController;
         private int stunCount = 0;
 
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
+            stateController = GetComponentInParent<PlayerStateController>();
             if (animationFacade == null) animationFacade = GetComponentInChildren<PlayerAnimationFacade>();
         }
 
@@ -70,7 +72,11 @@ namespace CCSystem
                 
                 if (characterController != null)
                 {
-                    characterController.Move(direction * currentForce * Time.deltaTime);
+                    // เช็คก่อนเสมอว่าถูกเปิดใช้งานอยู่หรือไม่ ถ้าถูกปิดไปแล้วก็จะไม่ Move 
+                    if (characterController.enabled)
+                    {
+                        characterController.Move(direction * currentForce * Time.deltaTime);
+                    }
                 }
                 else
                 {
@@ -86,7 +92,7 @@ namespace CCSystem
             stunCount++;
             if (stunCount == 1)
             {
-                if (gameObject.CompareTag("Player")) PlayerStateController.SetControl(false);
+                if (stateController != null) stateController.SetControl(false);
                 if (animationFacade != null) animationFacade.SetStunState(true);
             }
         }
@@ -97,7 +103,7 @@ namespace CCSystem
             if (stunCount <= 0)
             {
                 stunCount = 0;
-                if (gameObject.CompareTag("Player")) PlayerStateController.SetControl(true);
+                if (stateController != null) stateController.SetControl(true);
                 if (animationFacade != null) animationFacade.SetStunState(false);
             }
         }

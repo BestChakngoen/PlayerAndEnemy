@@ -28,8 +28,10 @@ namespace PlayerInputs
         public event Action OnEnableIFrame;
         public event Action OnDisableIFrame;
         public event Action OnDealDamage;
+        public event Action OnHitStart;
         public event Action OnHitEnd;
         public event Action<bool> OnStunStateChanged;
+        public event Action OnDeathAnimationComplete;
 
         private static readonly int SpeedHash        = Animator.StringToHash("Speed");
         private static readonly int IsComboHash      = Animator.StringToHash("IsCombo");
@@ -82,10 +84,18 @@ namespace PlayerInputs
                 animator.ResetTrigger(AttackTrigger);
                 animator.ResetTrigger(RollTrigger);
                 animator.ResetTrigger(CastTrigger);
+
+                // ล็อคการเดินและการกระทำทั้งหมดเมื่อติด Stun
+                OnCanNotMove?.Invoke();
+                OnHitStart?.Invoke(); 
             }
             else
             {
                 currentAnimationType = AnimationType.Locomotion;
+
+                // ปลดล็อคการเดินและการกระทำเมื่อหาย Stun
+                OnCanMove?.Invoke();
+                OnHitEnd?.Invoke();
             }
 
             OnStunStateChanged?.Invoke(isStunned);
@@ -146,6 +156,8 @@ namespace PlayerInputs
             EnterActionState();
             animator.SetFloat(SpeedHash, 0f);
             animator.SetTrigger(HitTrigger);
+            
+            OnHitStart?.Invoke();
         }
 
         public void ResetDeathState()
@@ -181,7 +193,12 @@ namespace PlayerInputs
             OnRollEnd?.Invoke();
         }
 
-        public void AnimEvent_CanMove() => OnCanMove?.Invoke();
+        public void AnimEvent_CanMove()
+        {
+            // ดักไว้ไม่ให้ Animation Event มาปลดล็อคการเดินถ้ายังติด Stun อยู่
+            if (!IsStunned) OnCanMove?.Invoke();
+        }
+
         public void AnimEvent_CanNotMove() => OnCanNotMove?.Invoke();
         public void AnimEvent_EnableWeapon() => OnEnableWeapon?.Invoke();
         public void AnimEvent_DisableWeapon() => OnDisableWeapon?.Invoke();
@@ -197,16 +214,16 @@ namespace PlayerInputs
 
         public void AnimEvent_DeathAnimationEnd()
         {
-            if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameState.GameOver)
-            {
-                GameStateManager.Instance.SetState(GameState.GameOver);
-            }
+            OnDeathAnimationComplete?.Invoke();
         }
 
         public void AnimEvent_HitEnd()
         {
-            ExitActionState();
-            OnHitEnd?.Invoke();
+            if (!IsStunned)
+            {
+                ExitActionState();
+                OnHitEnd?.Invoke();
+            }
         }
 
         public Animator GetAnimator() => animator;

@@ -17,6 +17,7 @@ namespace PlayerInputs
         private PlayerInteractController interact;
         private CameraViewSwitcher cameraViewSwitcher;
         private FPSMouseLook mouseLook;
+        private PlayerStateController stateController;
 
         void Awake()
         {
@@ -28,6 +29,9 @@ namespace PlayerInputs
             interact = GetComponentInChildren<PlayerInteractController>();
             cameraViewSwitcher = GetComponentInChildren<CameraViewSwitcher>();
             mouseLook = GetComponentInChildren<FPSMouseLook>();
+            
+            // ดึงคอมโพเนนต์ PlayerStateController ที่อยู่ในตัวแม่หรือตัวมันเอง
+            stateController = GetComponentInParent<PlayerStateController>();
 
             SetupInputEvents();
         }
@@ -48,12 +52,12 @@ namespace PlayerInputs
 
             controls.Player.Interact.performed += _ => 
             { 
-                if (!PlayerStateController.CanControl) return;
+                if (stateController != null && !stateController.CanControl) return;
                 if (interact != null) interact.TryInteract(); 
             };
             controls.Player.Interact.canceled  += _ => 
             { 
-                if (!PlayerStateController.CanControl) return;
+                if (stateController != null && !stateController.CanControl) return;
                 if (interact != null) interact.StopInteract(); 
             };
 
@@ -64,14 +68,14 @@ namespace PlayerInputs
 
             controls.Player.Attack.performed += _ =>
             {
-                if (!PlayerStateController.CanControl) return;
+                if (stateController != null && !stateController.CanControl) return;
                 if (cameraViewSwitcher != null && cameraViewSwitcher.IsFirstPerson) return;
                 if (combat != null) combat.Attack();
             };
 
             controls.Player.Roll.performed += _ =>
             {
-                if (!PlayerStateController.CanControl) return;
+                if (stateController != null && !stateController.CanControl) return;
                 if (cameraViewSwitcher != null && cameraViewSwitcher.IsFirstPerson) return;
                 if (stamina != null) stamina.TryRoll();
             };

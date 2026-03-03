@@ -1,6 +1,7 @@
 using UnityEngine;
+using PlayerInputs.Core;
 
-public class PlayerInteractController : MonoBehaviour
+public class PlayerInteractController : MonoBehaviour, IActionLockable
 {
     [Header("Raycast")]
     public float interactDistance = 3f;
@@ -17,15 +18,23 @@ public class PlayerInteractController : MonoBehaviour
     private IHoldInteractable currentHold;
     private bool isHolding;
     private IHoldInteractable holdingTarget;
-
-
+    private bool isActionLocked = false;
 
     void Update()
     {
         DetectInteractable();
-        
     }
 
+    public void LockAction()
+    {
+        isActionLocked = true;
+        StopInteract();
+    }
+
+    public void UnlockAction()
+    {
+        isActionLocked = false;
+    }
 
     void DetectInteractable()
     {
@@ -36,7 +45,6 @@ public class PlayerInteractController : MonoBehaviour
             var hitHold = hit.collider.GetComponentInParent<IHoldInteractable>();
             var hitInteract = hit.collider.GetComponentInParent<IInteractable>();
 
-            // 🔴 กำลัง Hold อยู่ แต่ Raycast หลุดเป้าหมาย
             if (isHolding && holdingTarget != null && hitHold != holdingTarget)
             {
                 holdingTarget.EndHold(gameObject);
@@ -58,7 +66,6 @@ public class PlayerInteractController : MonoBehaviour
             }
         }
 
-        // 🔴 Raycast ไม่โดนอะไรเลยขณะ Hold
         if (isHolding && holdingTarget != null)
         {
             holdingTarget.EndHold(gameObject);
@@ -69,10 +76,10 @@ public class PlayerInteractController : MonoBehaviour
         ClearHighlight();
     }
 
-
-
     public void TryInteract()
     {
+        if (isActionLocked) return;
+
         if (currentHold != null && currentHold.RequiresHold)
         {
             isHolding = true;
@@ -86,8 +93,6 @@ public class PlayerInteractController : MonoBehaviour
         }
     }
 
-
-
     public void StopInteract()
     {
         if (currentHold != null)
@@ -96,8 +101,6 @@ public class PlayerInteractController : MonoBehaviour
             isHolding = false;
         }
     }
-
-    // ================= Highlight =================
 
     void ApplyHighlight(Renderer renderer)
     {

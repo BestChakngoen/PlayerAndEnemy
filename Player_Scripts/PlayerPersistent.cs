@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
+using Photon.Pun;
 
 namespace PlayerInputs
 {
@@ -12,6 +13,15 @@ namespace PlayerInputs
 
         private void Awake()
         {
+            // 🛑 [ระบบป้องกัน] ถ้าเป็นตัวละครออนไลน์ ให้ทำลายแค่สคริปต์นี้ทิ้ง ห้ามทำลาย GameObject เด็ดขาด!
+            PhotonView pv = GetComponent<PhotonView>();
+            if (pv != null && PhotonNetwork.IsConnected)
+            {
+                Destroy(this); 
+                return;
+            }
+
+            // ระบบ Singleton สำหรับโหมดเล่นคนเดียว
             if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);
@@ -34,6 +44,12 @@ namespace PlayerInputs
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            // ถ้าอยู่ในห้องออนไลน์ ปล่อยให้ OnlineGameManager จัดการแทน
+            if (PhotonNetwork.InRoom)
+            {
+                return;
+            }
+
             bool isAllowed = false;
             foreach (string allowedScene in allowedScenes)
             {

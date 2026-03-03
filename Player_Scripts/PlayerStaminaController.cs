@@ -1,25 +1,34 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.UI;
-using GameManger;
+using System.Collections;
+using PlayerInputs.Core;
 
 namespace PlayerInputs
 {
-    public class PlayerStaminaController : MonoBehaviour
+    public class PlayerStaminaController : MonoBehaviour, IActionLockable
     {
-        public float maxStamina = 100f;
-        public float regenRate = 10f;
-        public float rollCost = 20f;
-        public float rollCooldown = 2f;
-
-        [SerializeField] private Slider staminaSlider;
+        [SerializeField] private float maxStamina = 100f;
+        [SerializeField] private float rollCost = 25f;
+        [SerializeField] private float regenRate = 15f;
+        [SerializeField] private float regenDelay = 1.0f;
         [SerializeField] private PlayerAnimationFacade animationFacade;
+        
+        [Header("UI Settings")]
+        [SerializeField] private Slider staminaSlider;
+        [SerializeField] private Image staminaFillImage;
+        [SerializeField] private Color normalColor = Color.yellow;
+        [SerializeField] private Color flashColor = Color.red;
+        [SerializeField] private float flashDuration = 0.2f;
 
-        [Header("Audio")]
-        [SerializeField] private AudioClip[] rollSounds;
+        public event Action<float, float> OnStaminaChanged;
 
         private float stamina;
         private float cooldown;
         private PlayerMovementController movementController;
+        private PlayerStateController stateController;
+        private bool isActionLocked = false;
+        private Coroutine flashCoroutine;
 
         void Awake()
         {
@@ -30,62 +39,94 @@ namespace PlayerInputs
             }
             
             movementController = GetComponent<PlayerMovementController>();
+            stateController = GetComponentInParent<PlayerStateController>();
+
+            if (staminaSlider != null)
+            {
+                staminaSlider.maxValue = maxStamina;
+            }
+            if (staminaFillImage != null)
+            {
+                staminaFillImage.color = normalColor;
+            }
         }
 
         void Start()
         {
             stamina = maxStamina;
-
-            if (staminaSlider != null)
+            UpdateUI();
+            OnStaminaChanged?.Invoke(stamina, maxStamina);
+            if (animationFacade != null)
             {
-                staminaSlider.maxValue = maxStamina;
-                staminaSlider.value = stamina;
+                animationFacade.OnRollEnd += HandleRollEnd;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (animationFacade != null)
+            {
+                animationFacade.OnRollEnd -= HandleRollEnd;
             }
         }
 
         void Update()
         {
-            if (!PlayerStateController.CanControl) return;
+            if (stateController != null && !stateController.CanControl) return;
 
             HandleRegen();
             HandleCooldown();
         }
 
+        public void LockAction()
+        {
+            isActionLocked = true;
+        }
+
+        public void UnlockAction()
+        {
+            isActionLocked = false;
+        }
+
+        public void ResetStamina()
+        {
+            stamina = maxStamina;
+            cooldown = 0f;
+            isActionLocked = false;
+            UpdateUI();
+            OnStaminaChanged?.Invoke(stamina, maxStamina);
+        }
+
         public bool TryRoll()
         {
-            if (!PlayerStateController.CanControl) return false;
+            if (isActionLocked) return false;
+            if (stateController != null && !stateController.CanControl) return false;
 
-            if (stamina < rollCost || cooldown > 0f) return false;
-
-            stamina -= rollCost;
-            cooldown = rollCooldown;
-
-            UpdateStaminaUI();
-
-            if (rollSounds != null && rollSounds.Length > 0 && AudioManager.Instance != null)
+            if (stamina < rollCost || cooldown > 0f)
             {
-                AudioClip clip = rollSounds[Random.Range(0, rollSounds.Length)];
-                AudioManager.Instance.PlaySFX(clip, transform.position);
+                FlashStaminaBar();
+                return false;
             }
 
-            if (animationFacade != null) animationFacade.PlayRoll();
-            if (movementController != null) movementController.StartRoll();
-
+            stamina -= rollCost;
+            cooldown = regenDelay;
+            
+            UpdateUI();
+            OnStaminaChanged?.Invoke(stamina, maxStamina);
+            
+            animationFacade.PlayRoll();
             return true;
         }
 
-        public float GetCurrentStamina() => stamina;
-
-        public bool HasEnoughStamina(float cost) => stamina >= cost;
-
         private void HandleRegen()
         {
-            if (stamina >= maxStamina) return;
-
-            stamina += regenRate * Time.deltaTime;
-            stamina = Mathf.Min(stamina, maxStamina);
-
-            UpdateStaminaUI();
+            if (cooldown <= 0f && stamina < maxStamina)
+            {
+                stamina += regenRate * Time.deltaTime;
+                stamina = Mathf.Clamp(stamina, 0, maxStamina);
+                UpdateUI();
+                OnStaminaChanged?.Invoke(stamina, maxStamina);
+            }
         }
 
         private void HandleCooldown()
@@ -93,16 +134,37 @@ namespace PlayerInputs
             if (cooldown > 0f)
             {
                 cooldown -= Time.deltaTime;
-                cooldown = Mathf.Max(cooldown, 0f);
             }
         }
-
-        private void UpdateStaminaUI()
+        
+        private void UpdateUI()
         {
             if (staminaSlider != null)
             {
                 staminaSlider.value = stamina;
             }
+        }
+
+        private void FlashStaminaBar()
+        {
+            if (staminaFillImage == null) return;
+            
+            if (flashCoroutine != null)
+            {
+                StopCoroutine(flashCoroutine);
+            }
+            flashCoroutine = StartCoroutine(FlashRoutine());
+        }
+
+        private IEnumerator FlashRoutine()
+        {
+            staminaFillImage.color = flashColor;
+            yield return new WaitForSeconds(flashDuration);
+            staminaFillImage.color = normalColor;
+        }
+        
+        private void HandleRollEnd()
+        {
         }
     }
 }
